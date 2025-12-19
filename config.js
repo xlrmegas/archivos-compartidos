@@ -6,3 +6,4 @@ const CONFIG = {
     PDF_URL: 'https://drive.google.com/uc?export=download&id=1PP1u3nSZmVutryd06XMuLbXYoUTcgazJ'
 
 };
+
